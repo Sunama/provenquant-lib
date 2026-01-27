@@ -15,8 +15,6 @@ class BatchDataframe:
     ):
         self.dir_path = dir_path
         self.batch_size = batch_size
-        
-        self.batches = {}
     
     def load_dataframe(
         self,
@@ -72,4 +70,7 @@ class BatchDataframe:
         
         for group_time, group_df in grouped:
             batch_filename = f"{self.dir_path}/batch_{group_time.strftime('%Y%m%d%H%M%S')}.parquet"
+            if not os.path.exists(self.dir_path):
+                os.makedirs(self.dir_path)
+            
             group_df.to_parquet(batch_filename)

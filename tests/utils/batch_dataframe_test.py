@@ -31,7 +31,6 @@ class TestBatchDataframe:
     batch_df = BatchDataframe(dir_path=temp_dir, batch_size='1D')
     assert batch_df.dir_path == temp_dir
     assert batch_df.batch_size == '1D'
-    assert batch_df.batches == {}
   
   def test_save_dataframe(self, temp_dir, sample_dataframe):
     """Test saving DataFrame in batches."""
