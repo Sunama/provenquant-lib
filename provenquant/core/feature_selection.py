@@ -1,4 +1,4 @@
-from proven_quant.core.cross_validation import PurgedKFold
+from provenquant.core.cross_validation import PurgedKFold
 from sklearn.metrics import accuracy_score, log_loss
 from statsmodels.tsa.stattools import adfuller, kpss
 import numpy as np

@@ -1,4 +1,4 @@
-from proven_quant.core.labeling import (
+from provenquant.core.labeling import (
     get_horizontal_barrier_events,
     add_vertical_barrier_to_horizontal_barrier_events,
     get_binary_labels,

@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from proven_quant.utils.merge import (
+from provenquant.utils.merge import (
     match_merge_dataframe,
     match_merge_series,
     larger_timeframe_merge_to_smaller_timeframe_dataframe,

@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 
-from proven_quant.core.feature_selection import (
+from provenquant.core.feature_selection import (
   cv_score,
   feature_importance_mda,
   feature_importance_sfi,
