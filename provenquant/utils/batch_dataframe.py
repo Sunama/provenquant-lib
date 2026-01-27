@@ -1,7 +1,6 @@
-import pandas as pd
-import numpy as np
-import os
 from pathlib import Path
+import os
+import pandas as pd
 
 class BatchDataframe:
     """Load and store Dataframes in batches for more efficient RAM usage.
@@ -15,6 +14,24 @@ class BatchDataframe:
     ):
         self.dir_path = dir_path
         self.batch_size = batch_size
+    
+    def last_datetime(self) -> pd.Timestamp:
+        """Get the last datetime stored in the batches.
+        
+        Returns:
+            pd.Timestamp: The last datetime in the stored batches.
+        """
+        batch_files = sorted(Path(self.dir_path).glob('batch_*.parquet'))
+        if not batch_files:
+            return None
+        
+        last_batch_file = batch_files[-1]
+        last_batch_df = pd.read_parquet(last_batch_file)
+        
+        if len(last_batch_df) > 0:
+            return last_batch_df.index.max()
+        else:
+            return None
     
     def load_dataframe(
         self,

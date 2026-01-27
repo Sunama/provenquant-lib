@@ -80,3 +80,48 @@ class TestBatchDataframe:
     """Test default batch size."""
     batch_df = BatchDataframe(dir_path=temp_dir)
     assert batch_df.batch_size == '1D'
+  
+  def test_last_datetime_with_data(self, temp_dir, sample_dataframe):
+    """Test last_datetime() returns the last datetime when batches have data."""
+    batch_df = BatchDataframe(dir_path=temp_dir, batch_size='1D')
+    batch_df.save_dataframe(sample_dataframe)
+    
+    last_dt = batch_df.last_datetime()
+    expected_last = sample_dataframe.index.max()
+    
+    assert last_dt is not None
+    assert last_dt == expected_last
+  
+  def test_last_datetime_empty_directory(self, temp_dir):
+    """Test last_datetime() returns None when directory is empty."""
+    batch_df = BatchDataframe(dir_path=temp_dir)
+    last_dt = batch_df.last_datetime()
+    
+    assert last_dt is None
+  
+  def test_last_datetime_multiple_batches(self, temp_dir):
+    """Test last_datetime() with multiple batch files."""
+    batch_df = BatchDataframe(dir_path=temp_dir, batch_size='1D')
+    
+    # Create multiple DataFrames with different date ranges
+    dates1 = pd.date_range('2024-01-01', periods=24, freq='h')
+    df1 = pd.DataFrame({
+      'value': np.random.randn(24),
+      'price': np.random.rand(24) * 100
+    }, index=dates1)
+    
+    dates2 = pd.date_range('2024-01-03', periods=24, freq='h')
+    df2 = pd.DataFrame({
+      'value': np.random.randn(24),
+      'price': np.random.rand(24) * 100
+    }, index=dates2)
+    
+    # Save both DataFrames
+    batch_df.save_dataframe(df1)
+    batch_df.save_dataframe(df2)
+    
+    last_dt = batch_df.last_datetime()
+    expected_last = df2.index.max()
+    
+    assert last_dt is not None
+    assert last_dt == expected_last
