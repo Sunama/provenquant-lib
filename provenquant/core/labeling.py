@@ -50,20 +50,22 @@ def add_vertical_barrier_to_horizontal_barrier_events(
         dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
         events (pd.DataFrame): horizontal barrier events.
         vertical_barrier_duration (pd.Timedelta): Duration for vertical barrier.
+        datetime_col (str): Name of the datetime column. Defaults to 'index'.
 
     Returns:
         pd.DataFrame: DataFrame with vertical_barrier and ret added to events.
     """
     
     datetimes = dataframe.index if datetime_col == 'index' else dataframe[datetime_col]
+    last_datetime = datetimes[-1] if datetime_col == 'index' else datetimes.iloc[-1]
     
     rets = []
     vertical_barriers = []
 
     for event_time in events.index:
         vertical_barrier_time = event_time + vertical_barrier_duration
-        if vertical_barrier_time > datetimes.iloc[-1]:
-            vertical_barrier_time = datetimes.iloc[-1]
+        if vertical_barrier_time > last_datetime:
+            vertical_barrier_time = last_datetime
         vertical_barriers.append(vertical_barrier_time)
         
         if datetime_col == 'index':

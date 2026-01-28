@@ -260,3 +260,101 @@ def test_get_triple_barrier_labels_notebook_like(small_dataframe_with_date):
     assert labels.iloc[1] == -1
     assert rets.iloc[0] >= 0.03 - 1e-6
     assert rets.iloc[1] <= -0.019 - 1e-6
+
+
+def test_add_vertical_barrier_with_index():
+    """Test add_vertical_barrier_to_horizontal_barrier_events using index."""
+    dates = pd.date_range('2024-01-01', periods=5, freq='h')
+    df = pd.DataFrame({
+        'close': [100, 102, 101, 103, 105]
+    }, index=dates)
+    
+    event_times = [dates[0], dates[2]]
+    events = pd.DataFrame(index=event_times)
+    
+    result = add_vertical_barrier_to_horizontal_barrier_events(
+        df, events, pd.Timedelta(hours=2), datetime_col='index'
+    )
+    
+    assert 'vertical_barrier' in result.columns
+    assert 'ret' in result.columns
+    assert len(result) == 2
+    assert result['vertical_barrier'].iloc[0] == dates[2]
+    assert result['vertical_barrier'].iloc[1] == dates[4]
+
+
+def test_add_vertical_barrier_with_column():
+    """Test add_vertical_barrier_to_horizontal_barrier_events using column."""
+    dates = pd.date_range('2024-01-01', periods=5, freq='h')
+    df = pd.DataFrame({
+        'datetime': dates,
+        'close': [100, 102, 101, 103, 105]
+    })
+    
+    event_times = [dates[0], dates[2]]
+    events = pd.DataFrame(index=event_times)
+    
+    result = add_vertical_barrier_to_horizontal_barrier_events(
+        df, events, pd.Timedelta(hours=2), datetime_col='datetime'
+    )
+    
+    assert 'vertical_barrier' in result.columns
+    assert 'ret' in result.columns
+    assert len(result) == 2
+    assert result['vertical_barrier'].iloc[0] == dates[2]
+    assert result['vertical_barrier'].iloc[1] == dates[4]
+
+
+def test_add_vertical_barrier_exceeds_last_date():
+    """Test that vertical barrier doesn't exceed last date."""
+    dates = pd.date_range('2024-01-01', periods=5, freq='h')
+    df = pd.DataFrame({
+        'datetime': dates,
+        'close': [100, 102, 101, 103, 105]
+    })
+    
+    # Event at last date, barrier would go past end
+    events = pd.DataFrame(index=[dates[-1]])
+    
+    result = add_vertical_barrier_to_horizontal_barrier_events(
+        df, events, pd.Timedelta(hours=3), datetime_col='datetime'
+    )
+    
+    assert result['vertical_barrier'].iloc[0] == dates[-1]
+
+
+def test_get_binary_labels_with_index():
+    """Test get_binary_labels with index-based setup."""
+    dates = pd.date_range('2024-01-01', periods=3, freq='h')
+    df = pd.DataFrame({
+        'close': [100, 105, 103]
+    }, index=dates)
+    
+    events = pd.DataFrame({
+        'ret': [0.05, -0.02, 0.01]
+    }, index=dates)
+    
+    labels = get_binary_labels(events, min_ret=0.01, side='long')
+    
+    assert labels.iloc[0] == 1  # 5% > 0 (long)
+    assert labels.iloc[1] == 0  # -2% < 0 (not profitable)
+    assert labels.iloc[2] == 1  # 1% >= 0.01
+
+
+def test_get_binary_labels_with_column():
+    """Test get_binary_labels with column-based setup."""
+    dates = pd.date_range('2024-01-01', periods=3, freq='h')
+    df = pd.DataFrame({
+        'datetime': dates,
+        'close': [100, 105, 103]
+    })
+    
+    events = pd.DataFrame({
+        'ret': [0.05, -0.02, 0.01]
+    }, index=dates)
+    
+    labels = get_binary_labels(events, min_ret=0.01, side='short')
+    
+    assert labels.iloc[0] == 0  # 5% > 0 (not profitable for short)
+    assert labels.iloc[1] == 1  # -2% < 0 (profitable for short)
+    assert labels.iloc[2] == 0  # 1% >= 0 (not profitable for short)
