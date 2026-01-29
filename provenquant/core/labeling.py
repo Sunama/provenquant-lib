@@ -111,6 +111,6 @@ def get_tripple_label_barrier(
     
     dataframe['label'] = labels
     dataframe['return'] = returns
-    dataframe['mapped_label'] = dataframe['label'].map({1: 2, -1: 1, 0: 0})
+    dataframe['mapped_label'] = dataframe['label'].map({1: 2, 0: 1, -1: 0})
     
     return dataframe
