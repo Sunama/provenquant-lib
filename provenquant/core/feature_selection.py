@@ -1,6 +1,7 @@
 from provenquant.core.cross_validation import PurgedKFold
 from sklearn.metrics import accuracy_score, log_loss
 from statsmodels.tsa.stattools import adfuller, kpss
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 
@@ -64,7 +65,7 @@ def cv_score(
 
     return scores
 
-def feature_importance_mda(
+def calculate_mda_feature_importances(
     model: object,
     dataframe: pd.DataFrame,
     feature_cols: list,
@@ -155,9 +156,9 @@ def feature_importance_mda(
         'mean_score': mean_scores
     }, index=feature_cols)
 
-    return result_df
+    return result_df.sort_values(by='feature_importances', ascending=False)
     
-def feature_importance_sfi(
+def calculate_sfi_feature_importances(
     model: object,
     dataframe: pd.DataFrame,
     feature_cols: list,
@@ -166,7 +167,8 @@ def feature_importance_sfi(
     n_splits: int = 5,
     purge: int = 0,
     embargo: int = 0,
-    scoring: str = 'neg_log_loss'
+    scoring: str = 'neg_log_loss',
+    show_progress: bool = False
 ) -> pd.DataFrame:
     """Calculate feature importance using Single Feature Importance (SFI)
     
@@ -182,13 +184,15 @@ def feature_importance_sfi(
         scoring (str, optional): Scoring metric. That are 'neg_log_loss' and 'accuracy'
                                  supported.
                                  Defaults to 'neg_log_loss'.
+            show_progress (bool, optional): Whether to show progress. Defaults to False.
                                  
     Returns:
         pd.DataFrame: DataFrame containing feature importance scores.
     """
     
     importances = pd.DataFrame(columns=['mean', 'std'], index=feature_cols)
-    for feature in feature_cols:
+    iterator = tqdm(feature_cols, desc="Calculating SFI feature importance") if show_progress else feature_cols
+    for feature in iterator:
         X_feature = dataframe[[feature]].values
         y = dataframe[target_col].values
         if sample_weight_col:
@@ -210,7 +214,7 @@ def feature_importance_sfi(
         importances.loc[feature, 'mean'] = np.mean(scores)
         importances.loc[feature, 'std'] = np.std(scores) * len(scores)**-0.5
         
-    return importances
+    return importances.sort_values(by='mean', ascending=False)
 
 def _get_e_vec(dot, threshold) -> tuple[np.ndarray, np.ndarray]:
     """Compute eigen vectors and reduce dimension based on threshold.

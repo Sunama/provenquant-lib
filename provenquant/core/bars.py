@@ -63,8 +63,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx,
-                'chunk_id': chunk_id
+                'end_date': idx
             })
             cum_dollar_value = 0.0
             cum_ticks = 0
