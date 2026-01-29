@@ -85,7 +85,7 @@ def get_tripple_label_barrier(
         sl (float): Stop loss multiplier. Defaults to 1.
         
     Returns:
-        pd.DataFrame: DataFrame with labels and returns.
+        pd.DataFrame: DataFrame with labels returns and mapped_labels.
     """
     labels = []
     returns = []
@@ -111,5 +111,6 @@ def get_tripple_label_barrier(
     
     dataframe['label'] = labels
     dataframe['return'] = returns
+    dataframe['mapped_label'] = dataframe['label'].map({1: 2, -1: 1, 0: 0})
     
     return dataframe
