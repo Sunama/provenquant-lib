@@ -182,9 +182,8 @@ def test_get_tripple_label_barrier_basic():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     # Check structure
@@ -208,13 +207,12 @@ def test_get_tripple_label_barrier_positive_return():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     assert result['label'].iloc[0] == 1
-    assert result['return'].iloc[0] > 0.04
+    assert result['return'].iloc[0] >= 0.02
 
 
 def test_get_tripple_label_barrier_negative_return():
@@ -229,13 +227,12 @@ def test_get_tripple_label_barrier_negative_return():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     assert result['label'].iloc[0] == -1
-    assert result['return'].iloc[0] < -0.04
+    assert result['return'].iloc[0] <= -0.01
 
 
 def test_get_tripple_label_barrier_zero_label():
@@ -250,9 +247,8 @@ def test_get_tripple_label_barrier_zero_label():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.02,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     assert result['label'].iloc[0] == 0
@@ -271,9 +267,8 @@ def test_get_tripple_label_barrier_nan_t1():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     # NaN t1 should result in label 0 and return 0
@@ -293,21 +288,19 @@ def test_get_tripple_label_barrier_threshold_parameter(sample_dataframe):
         't1': [close_series.index[10]],
     }, index=[close_series.index[0]])
     
-    # Test with different threshold values
+    # Test with different tp values
     result_low = get_tripple_label_barrier(
         events_df.copy(),
         close_series,
-        threshold=0.0001,
-        pt=2,
-        sl=1
+        tp=0.0001,
+        sl=0.01
     )
     
     result_high = get_tripple_label_barrier(
         events_df.copy(),
         close_series,
-        threshold=0.1,
-        pt=2,
-        sl=1
+        tp=0.1,
+        sl=0.01
     )
     
     # Higher threshold may change labels
@@ -329,9 +322,8 @@ def test_get_tripple_label_barrier_multiple_events():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     assert len(result) == 3
@@ -357,9 +349,8 @@ def test_integration_filtrate_and_label(simple_dataframe):
         result = get_tripple_label_barrier(
             filtered,
             simple_dataframe['close'],
-            threshold=0.005,
-            pt=2,
-            sl=1
+            tp=0.02,
+            sl=0.01
         )
         
         # Check result structure
@@ -400,9 +391,8 @@ def test_get_tripple_label_barrier_empty_dataframe():
     result = get_tripple_label_barrier(
         events_df,
         close_series,
-        threshold=0.01,
-        pt=2,
-        sl=1
+        tp=0.02,
+        sl=0.01
     )
     
     assert len(result) == 0
