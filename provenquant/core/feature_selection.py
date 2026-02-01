@@ -1,5 +1,6 @@
 from provenquant.core.cross_validation import PurgedKFold
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
+from sklearn.model_selection import train_test_split
 from statsmodels.tools.sm_exceptions import InterpolationWarning
 from statsmodels.tsa.stattools import adfuller, kpss
 from tqdm import tqdm
@@ -77,13 +78,7 @@ def backward_feature_elimination(
     model: object,
     dataframe: pd.DataFrame,
     feature_cols: list,
-    target_col: str,
-    sample_weight_col: str = None,
-    n_splits: int = 5,
-    purge: int = 0,
-    embargo: int = 0,
-    scoring: str = 'neg_log_loss',
-    threshold: float = 0.01,
+    threshold: float = 0.55,
     verbose: bool = False
 ) -> list:
     """Perform backward feature elimination based on cross-validated scores.
@@ -92,16 +87,8 @@ def backward_feature_elimination(
         model (object): Trained model with fit and predict methods.
         dataframe (pd.DataFrame): DataFrame containing features and target.
         feature_cols (list): List of feature column names.
-        target_col (str): Target column name.
-        sample_weight_col (str, optional): Sample weight column name. Defaults to None.
-        n_splits (int, optional): Number of splits for cross-validation. Defaults to 5.
-        purge (int, optional): Purge size for Purged K-Fold. Defaults to 0.
-        embargo (int, optional): Embargo size for Purged K-Fold. Defaults to 0.
-        scoring (str, optional): Scoring metric. That are 'neg_log_loss', 'accuracy',
-                                 'auc' supported.
-                                 Defaults to 'neg_log_loss'.
         threshold (float, optional): Minimum improvement threshold to keep a feature.
-                                     Defaults to 0.01.
+                                     Defaults to 0.55.
         verbose (bool, optional): Whether to print progress. Defaults to False.
     
     Returns:
@@ -110,22 +97,20 @@ def backward_feature_elimination(
     selected_features = feature_cols.copy()
 
     while len(selected_features) > 1:
-        scores = _cv_score(
-            model,
-            dataframe[selected_features].values,
-            dataframe[target_col].values,
-            sample_weight=dataframe[sample_weight_col].values if sample_weight_col else None,
-            n_splits=n_splits,
-            purge=purge,
-            embargo=embargo,
-            scoring=scoring
-        )
-        score = np.mean(scores)
+        X = dataframe[selected_features].values
+        y = np.zeros(len(dataframe))
+        y[int(0.2 * len(dataframe)):] = 1
+        
+        X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2)
+        
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_val)
+        
+        score = roc_auc_score(y_val, y_pred)
         
         if score < threshold:
             if verbose:
-                print(f"Stopping elimination. Score {score} below threshold {threshold}.")
-                print(f"STD: {np.std(scores):.4f}, min: {np.min(scores):.4f}, max: {np.max(scores):.4f}")
+                print(f"Stopping elimination. Score {score:.4f} below threshold {threshold:.4f}.")
             break
         
         feature_importance = model.feature_importances_
@@ -133,7 +118,7 @@ def backward_feature_elimination(
         feature_to_remove = selected_features[most_important_idx]
         selected_features.remove(feature_to_remove)
         if verbose:
-            print(f"Score {score}. Removed feature: {feature_to_remove}")
+            print(f"Score {score:.4f}. Removed feature: {feature_to_remove}")
         
     return selected_features
     

@@ -291,8 +291,6 @@ class TestBackwardFeatureElimination:
       'feature2': np.random.randn(100),
       'feature3': np.random.randn(100),
       'feature4': np.random.randn(100),
-      'target': np.random.randint(0, 2, 100),
-      'weight': np.random.rand(100)
     })
     return df
   
@@ -301,48 +299,43 @@ class TestBackwardFeatureElimination:
     model = RandomForestClassifier(random_state=42, n_estimators=10)
     feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
     result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target', n_splits=3
+      model, sample_dataframe, feature_cols, threshold=0.5
     )
     
     assert isinstance(result, list)
     assert len(result) <= len(feature_cols)
     assert all(f in feature_cols for f in result)
   
-  def test_bfe_with_sample_weight(self, sample_dataframe):
-    """Test backward feature elimination with sample weights"""
+  def test_bfe_returns_list(self, sample_dataframe):
+    """Test that backward feature elimination returns a list"""
     model = RandomForestClassifier(random_state=42, n_estimators=10)
-    feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
+    feature_cols = ['feature1', 'feature2', 'feature3']
     result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      sample_weight_col='weight', n_splits=3
+      model, sample_dataframe, feature_cols, threshold=0.5
     )
     
     assert isinstance(result, list)
-    assert len(result) <= len(feature_cols)
   
-  def test_bfe_accuracy_scoring(self, sample_dataframe):
-    """Test backward feature elimination with accuracy scoring"""
+  def test_bfe_returns_original_feature_names(self, sample_dataframe):
+    """Test that returned features are from the original feature list"""
     model = RandomForestClassifier(random_state=42, n_estimators=10)
     feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
     result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, scoring='accuracy'
+      model, sample_dataframe, feature_cols, threshold=0.5
     )
     
-    assert isinstance(result, list)
-    assert len(result) <= len(feature_cols)
+    assert all(f in feature_cols for f in result)
+    assert len(set(result)) == len(result)  # No duplicates
   
-  def test_bfe_auc_scoring(self, sample_dataframe):
-    """Test backward feature elimination with AUC scoring"""
+  def test_bfe_single_feature_remains(self, sample_dataframe):
+    """Test that at least one feature remains"""
     model = RandomForestClassifier(random_state=42, n_estimators=10)
-    feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
+    feature_cols = ['feature1', 'feature2', 'feature3']
     result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, scoring='auc'
+      model, sample_dataframe, feature_cols, threshold=0.0
     )
     
-    assert isinstance(result, list)
-    assert len(result) <= len(feature_cols)
+    assert len(result) >= 1
   
   def test_bfe_threshold_effect(self, sample_dataframe):
     """Test backward feature elimination with different thresholds"""
@@ -350,13 +343,11 @@ class TestBackwardFeatureElimination:
     feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
     
     result_low_threshold = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, threshold=0.0
+      model, sample_dataframe, feature_cols, threshold=0.0
     )
     
     result_high_threshold = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, threshold=1.0
+      model, sample_dataframe, feature_cols, threshold=0.99
     )
     
     assert isinstance(result_low_threshold, list)
@@ -364,50 +355,47 @@ class TestBackwardFeatureElimination:
     # Higher threshold should eliminate more features (stop earlier)
     assert len(result_high_threshold) >= len(result_low_threshold)
   
-  def test_bfe_with_purge_embargo(self, sample_dataframe):
-    """Test backward feature elimination with purge and embargo parameters"""
-    model = RandomForestClassifier(random_state=42, n_estimators=10)
-    feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
-    result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, purge=2, embargo=2
-    )
-    
-    assert isinstance(result, list)
-    assert len(result) <= len(feature_cols)
-  
-  def test_bfe_single_feature_remains(self, sample_dataframe):
-    """Test that at least one feature remains"""
-    model = RandomForestClassifier(random_state=42, n_estimators=10)
-    feature_cols = ['feature1', 'feature2', 'feature3']
-    result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, threshold=0.0
-    )
-    
-    assert len(result) >= 1
-  
-  def test_bfe_returns_original_feature_names(self, sample_dataframe):
-    """Test that returned features are from the original feature list"""
-    model = RandomForestClassifier(random_state=42, n_estimators=10)
-    feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
-    result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3
-    )
-    
-    assert all(f in feature_cols for f in result)
-    assert len(set(result)) == len(result)  # No duplicates
-  
   def test_bfe_verbose_mode(self, sample_dataframe, capsys):
     """Test backward feature elimination with verbose output"""
     model = RandomForestClassifier(random_state=42, n_estimators=10)
     feature_cols = ['feature1', 'feature2', 'feature3']
     result = backward_feature_elimination(
-      model, sample_dataframe, feature_cols, 'target',
-      n_splits=3, verbose=True
+      model, sample_dataframe, feature_cols, threshold=0.5, verbose=True
     )
     
     captured = capsys.readouterr()
     # In verbose mode, should print elimination information
     assert isinstance(result, list)
+  
+  def test_bfe_custom_threshold(self, sample_dataframe):
+    """Test backward feature elimination with custom threshold"""
+    model = RandomForestClassifier(random_state=42, n_estimators=10)
+    feature_cols = ['feature1', 'feature2', 'feature3', 'feature4']
+    result = backward_feature_elimination(
+      model, sample_dataframe, feature_cols, threshold=0.75
+    )
+    
+    assert isinstance(result, list)
+    assert len(result) <= len(feature_cols)
+  
+  def test_bfe_respects_feature_list(self, sample_dataframe):
+    """Test that function only uses features from feature_cols"""
+    model = RandomForestClassifier(random_state=42, n_estimators=10)
+    feature_cols = ['feature1', 'feature2']
+    result = backward_feature_elimination(
+      model, sample_dataframe, feature_cols, threshold=0.5
+    )
+    
+    assert all(f in feature_cols for f in result)
+  
+  def test_bfe_with_single_feature(self, sample_dataframe):
+    """Test backward feature elimination with single feature"""
+    model = RandomForestClassifier(random_state=42, n_estimators=10)
+    feature_cols = ['feature1']
+    result = backward_feature_elimination(
+      model, sample_dataframe, feature_cols, threshold=0.5
+    )
+    
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0] == 'feature1'
