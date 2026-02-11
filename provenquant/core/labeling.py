@@ -142,16 +142,21 @@ def get_tripple_label_barrier(
         sl (float): Stop loss percentage. Defaults to 1%.
         
     Returns:
-        pd.DataFrame: DataFrame with labels returns and mapped_labels.
+        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns and
+        min_returns.
     """
     labels = []
     returns = []
+    max_returns = []
+    min_returns = []
     
     for event_time, row in dataframe.iterrows():
         t1 = row['t1']
         if pd.isna(t1):
             labels.append(0)
             returns.append(0)
+            max_returns.append(0)
+            min_returns.append(0)
             continue
         
         start_time = event_time
@@ -159,8 +164,12 @@ def get_tripple_label_barrier(
         start_price = close_series.loc[start_time]
         exited = False
         
-        for t in close_series.loc[start_time:end_time].index:
-            price = close_series.loc[t]
+        window_prices = close_series.loc[start_time:end_time]
+        window_returns = (window_prices - start_price) / start_price
+        max_returns.append(window_returns.max())
+        min_returns.append(window_returns.min())
+
+        for t, price in window_prices.items():
             ret = (price - start_price) / start_price
             
             if ret > tp:
@@ -182,6 +191,8 @@ def get_tripple_label_barrier(
     
     dataframe['label'] = labels
     dataframe['return'] = returns
+    dataframe['max_return'] = max_returns
+    dataframe['min_return'] = min_returns
     dataframe['mapped_label'] = dataframe['label'].map({1: 2, 0: 1, -1: 0})
     
     return dataframe
