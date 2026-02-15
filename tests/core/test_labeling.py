@@ -1,6 +1,8 @@
 from provenquant.core.labeling import (
     filtrate_tripple_label_barrier,
     get_tripple_label_barrier,
+    filtrate_dynamic_tripple_label_barrier,
+    get_dynamic_tripple_label_barrier,
 )
 import numpy as np
 import os
@@ -137,6 +139,46 @@ def test_filtrate_tripple_label_barrier_vertical_barrier_boundary(simple_datafra
         assert (result['t1'] <= df['datetime'].max()).all()
 
 
+def test_filtrate_dynamic_tripple_label_barrier_basic(simple_dataframe):
+    """Test basic functionality of filtrate_dynamic_tripple_label_barrier."""
+    df = simple_dataframe.copy()
+    # Add a dynamic threshold column
+    df['dynamic_threshold'] = 0.01  # Constant threshold for simplicity
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5,
+        datetime_col='index'
+    )
+    
+    # Check structure
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    assert 'close' in result.columns
+    assert 'dynamic_threshold' in result.columns
+    assert len(result) >= 0
+
+
+def test_filtrate_dynamic_tripple_label_barrier_variable_threshold(volatile_dataframe):
+    """Test with variable thresholds per row."""
+    df = volatile_dataframe.copy()
+    # Create random dynamic thresholds
+    np.random.seed(42)
+    df['dynamic_threshold'] = np.random.uniform(0.005, 0.02, len(df))
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5,
+        datetime_col='index'
+    )
+    
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    assert len(result) >= 0
+
+
 def test_filtrate_tripple_label_barrier_preserves_data():
     """Test that filtrate preserves data columns correctly."""
     dates = pd.date_range(start='2023-01-01', periods=20, freq='1h')
@@ -189,6 +231,43 @@ def test_get_tripple_label_barrier_basic():
     # Check structure
     assert 'label' in result.columns
     assert 'return' in result.columns
+    assert len(result) == len(events_df)
+    
+    # Check labels are ternary
+    assert set(result['label'].unique()).issubset({-1, 0, 1})
+
+
+def test_get_dynamic_tripple_label_barrier_basic():
+    """Test basic functionality of get_dynamic_tripple_label_barrier."""
+    dates = pd.date_range(start='2023-01-01', periods=20, freq='1h')
+    df = pd.DataFrame({
+        'close': [100, 102, 101, 105, 103, 108, 106, 110, 107, 112,
+                  111, 115, 113, 118, 116, 120, 119, 125, 123, 128],
+        'volume': [1000] * 20
+    }, index=dates)
+    
+    close_series = df['close']
+    
+    # Create events dataframe with t1 values and dynamic thresholds
+    events_df = pd.DataFrame({
+        't1': [dates[5], dates[10], dates[15]],
+        'threshold': [0.01, 0.02, 0.015]
+    }, index=[dates[0], dates[5], dates[10]])
+    
+    result = get_dynamic_tripple_label_barrier(
+        events_df,
+        close_series,
+        cusum_threshold_col='threshold',
+        tp_multiplier=2.0,
+        sl_multiplier=1.0
+    )
+    
+    # Check structure
+    assert 'label' in result.columns
+    assert 'return' in result.columns
+    assert 'max_return' in result.columns
+    assert 'min_return' in result.columns
+    assert 'mapped_label' in result.columns
     assert len(result) == len(events_df)
     
     # Check labels are ternary

@@ -31,6 +31,70 @@ def evaluate_triple_barrier(
             return pnl, i
     return path[-1], len(path) - 1  # If no barrier is hit
 
+def filtrate_dynamic_tripple_label_barrier(
+    dataframe: pd.DataFrame,
+    cusum_threshold_col: str,
+    vertical_barrier: int,
+    datetime_col: str = 'index',
+) -> pd.DataFrame:
+    """Filtrate triple barrier labels from raw DataFrame using dynamic CUSUM thresholds.
+       Use this function before applying triple barrier labeling or in
+       production based that we don't need labels and returns yet.
+       
+    Args:
+        dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
+        cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
+        vertical_barrier (int): Ticks for vertical barrier.
+        datetime_col (str): Name of the datetime column. Defaults to 'index'.
+    Returns:
+        pd.DataFrame: DataFrame with t1.
+    """
+    # CUSUM Filter with dynamic thresholds
+    if datetime_col != 'index':
+        close_prices = dataframe.set_index(datetime_col)['close']
+    else:
+        close_prices = dataframe['close']
+    
+    diff = close_prices.pct_change().dropna()
+    
+    pos_cusum, neg_cusum = 0, 0
+    t_events = []
+    for idx in diff.index[1:]:
+        threshold = dataframe.loc[idx, cusum_threshold_col]
+        pos_cusum = max(0, pos_cusum + diff.loc[idx])
+        neg_cusum = min(0, neg_cusum + diff.loc[idx])
+        
+        if pos_cusum > threshold:
+            t_events.append(idx)
+            pos_cusum = 0
+        elif neg_cusum < -threshold:
+            t_events.append(idx)
+            neg_cusum = 0
+    t_events = pd.DatetimeIndex(t_events)
+    
+    # Vertical Barrier
+    t1_values = []
+    for event_time in t_events:
+        t1_value = close_prices.index[
+            close_prices.index.get_loc(event_time) + vertical_barrier
+            ] if (close_prices.index.get_loc(event_time) + vertical_barrier) < len(close_prices) else close_prices.index[-1]
+        t1_values.append(t1_value)
+    
+    t1 = pd.Series(t1_values, index=t_events, dtype=close_prices.index.dtype)
+    df = pd.DataFrame(index=t_events)
+    df['t1'] = t1
+    
+    # Add another columns in dataframe to df
+    if datetime_col == 'index':
+        for col in dataframe.columns:
+            df[col] = dataframe.loc[t_events][col]
+    else:
+        for col in dataframe.columns:
+            if col != datetime_col:
+                df[col] = dataframe.set_index(datetime_col).loc[t_events][col]
+    
+    return df
+
 def filtrate_tripple_label_barrier(
     dataframe: pd.DataFrame,
     cusum_threshold: float,
@@ -126,6 +190,82 @@ def fit_ou_ols(series: pd.Series, dt: float = 1.0):
     sigma = np.std(residuals) / np.sqrt(dt)
 
     return kappa, theta, sigma
+
+def get_dynamic_tripple_label_barrier(
+    dataframe: pd.DataFrame,
+    close_series: pd.Series,
+    cusum_threshold_col: str,
+    tp_multiplier: float = 2.0,
+    sl_multiplier: float = 1.0,
+) -> pd.DataFrame:
+    """Get triple barrier labels from DataFrame with dynamic CUSUM thresholds.
+
+    Args:
+        dataframe (pd.DataFrame): DataFrame with t1 and dynamic CUSUM thresholds.
+        close_series (pd.Series): Series of close prices that have datetime index.
+        cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
+        tp_multiplier (float): Multiplier for take profit threshold. Defaults to 2.0.
+        sl_multiplier (float): Multiplier for stop loss threshold. Defaults to 1.0
+        
+    Returns:
+        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns and
+        min_returns.
+    """
+    labels = []
+    returns = []
+    max_returns = []
+    min_returns = []
+    
+    for event_time, row in dataframe.iterrows():
+        t1 = row['t1']
+        if pd.isna(t1):
+            labels.append(0)
+            returns.append(0)
+            max_returns.append(0)
+            min_returns.append(0)
+            continue
+        
+        threshold = row[cusum_threshold_col]
+        tp = tp_multiplier * threshold
+        sl = -sl_multiplier * threshold
+        
+        start_time = event_time
+        end_time = t1
+        start_price = close_series.loc[start_time]
+        exited = False
+        
+        window_prices = close_series.loc[start_time:end_time]
+        window_returns = (window_prices - start_price) / start_price
+        max_returns.append(window_returns.max())
+        min_returns.append(window_returns.min())
+
+        for t, price in window_prices.items():
+            ret = (price - start_price) / start_price
+            
+            if ret > tp:
+                labels.append(1)
+                returns.append(ret)
+                exited = True
+                break
+            elif ret < sl:
+                labels.append(-1)
+                returns.append(ret)
+                exited = True
+                break
+        
+        if not exited:
+            end_price = close_series.loc[end_time]
+            ret = (end_price - start_price) / start_price
+            labels.append(0)
+            returns.append(ret)
+    
+    dataframe['label'] = labels
+    dataframe['return'] = returns
+    dataframe['max_return'] = max_returns
+    dataframe['min_return'] = min_returns
+    dataframe['mapped_label'] = dataframe['label'].map({1: 2, 0: 1, -1: 0})
+    
+    return dataframe
 
 def get_tripple_label_barrier(
     dataframe: pd.DataFrame,
