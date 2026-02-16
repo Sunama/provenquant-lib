@@ -87,18 +87,30 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
     
     return bars, final_state
 
-def convert_standard_bars_to_larger_timeframe(dataframe: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+def convert_standard_bars_to_larger_timeframe(
+    dataframe: pd.DataFrame,
+    timeframe: str,
+    datetime_col: str='index',
+) -> pd.DataFrame:
     """Convert standard bars to a larger timeframe (e.g., 1-minute bars to 5-minute bars).
 
     Args:
         dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
         timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
+        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
         
     Returns:
         pd.DataFrame: DataFrame containing resampled bars.
     """
     df = dataframe.copy()
-    df.index = pd.to_datetime(df.index)
+    
+    if datetime_col != 'index':
+        # Ensure datetime_col is datetime type
+        df[datetime_col] = pd.to_datetime(df[datetime_col])
+        df.set_index(datetime_col, inplace=True)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        # If it's the index, ensure it's datetime type
+        df.index = pd.to_datetime(df.index)
     
     resampled = df.resample(timeframe).agg({
         'open': 'first',
@@ -107,6 +119,10 @@ def convert_standard_bars_to_larger_timeframe(dataframe: pd.DataFrame, timeframe
         'close': 'last',
         'volume': 'sum'
     }).dropna()
+    
+    if datetime_col != 'index':
+        # Restore the datetime col as index if that was the original structure
+        resampled.index.name = datetime_col
     
     return resampled
 
