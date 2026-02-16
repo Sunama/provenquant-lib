@@ -13,9 +13,6 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
         tuple: (bars_list, final_state_dict)
     """
     chunk, chunk_id = chunk_tuple
-    chunk = chunk.copy()
-    chunk['dollar_value'] = chunk['close'] * chunk['volume']
-    chunk['price_change'] = chunk['close'].diff()
     
     bars = []
     cum_dollar_value = 0.0
@@ -90,6 +87,29 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
     
     return bars, final_state
 
+def convert_standard_bars_to_larger_timeframe(dataframe: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    """Convert standard bars to a larger timeframe (e.g., 1-minute bars to 5-minute bars).
+
+    Args:
+        dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
+        timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
+        
+    Returns:
+        pd.DataFrame: DataFrame containing resampled bars.
+    """
+    df = dataframe.copy()
+    df.index = pd.to_datetime(df.index)
+    
+    resampled = df.resample(timeframe).agg({
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum'
+    }).dropna()
+    
+    return resampled
+
 def get_dollar_bars(
     dataframe: pd.DataFrame,
     threshold: float,
@@ -110,6 +130,10 @@ def get_dollar_bars(
     df = dataframe.copy()
     if datetime_col != 'index':
         df.set_index(datetime_col, inplace=True)
+    
+    # Pre-calculate to ensure consistency across chunks when multiprocessing
+    df['dollar_value'] = df['close'] * df['volume']
+    df['price_change'] = df['close'].diff()
     
     # Split data into chunks
     num_chunks = max(1, num_processes)
