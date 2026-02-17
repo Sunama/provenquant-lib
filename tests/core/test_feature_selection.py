@@ -100,8 +100,10 @@ class TestFeatureImportanceMDA:
     
     assert isinstance(result, pd.DataFrame)
     assert set(result.index) == set(feature_cols)
-    assert 'feature_importances' in result.columns
-    assert 'mean_score' in result.columns
+    assert 'feature_importance' in result.columns
+    assert 'std' in result.columns
+    assert 'feature_sharpe' in result.columns
+    assert 'pos_ratio' in result.columns
     assert len(result) == 3
   
   def test_mda_with_sample_weight(self, sample_dataframe):
@@ -126,8 +128,10 @@ class TestFeatureImportanceMDA:
     )
     
     assert isinstance(result, pd.DataFrame)
-    assert all(result['mean_score'] >= 0)
-    assert all(result['mean_score'] <= 1)
+    assert 'feature_importance' in result.columns
+    # MDA is difference in scores, so for accuracy it should be between -1 and 1
+    assert all(result['feature_importance'] >= -1)
+    assert all(result['feature_importance'] <= 1)
   
   def test_mda_invalid_scoring(self, sample_dataframe):
     """Test MDA with invalid scoring method"""

@@ -151,7 +151,7 @@ def calculate_mda_feature_importances(
         
     Returns:
         pd.DataFrame: DataFrame containing feature importance scores with columns 
-                      'feature_importances' and 'mean_score'.
+                      'feature_importance', 'std', 'feature_sharpe', and 'pos_ratio'.
     """
     X = dataframe[feature_cols].values
     y = dataframe[target_col].values
@@ -161,8 +161,9 @@ def calculate_mda_feature_importances(
         sample_weight = None
     
     n_features = X.shape[1]
-    feature_importances = np.zeros(n_features)
-    mean_scores = np.zeros(n_features)
+    feature_importances = {}
+    for feature in feature_cols:
+        feature_importances[feature] = []
 
     pkf = PurgedKFold(
         n_splits=n_splits,
@@ -204,18 +205,21 @@ def calculate_mda_feature_importances(
                 y_pred_permuted = model.predict(X_test_permuted)
                 permuted_score = accuracy_score(y_test, y_pred_permuted, sample_weight=sw_test)
 
-            feature_importances[feature_idx] += baseline_score - permuted_score
-            mean_scores[feature_idx] += baseline_score
-
-    feature_importances /= n_splits
-    mean_scores /= n_splits
-
+            feature_importances[feature_cols[feature_idx]].append(baseline_score - permuted_score)
+            
+    mean_scores = {feature: np.mean(scores) for feature, scores in feature_importances.items()}
+    std_scores = {feature: np.std(scores) * len(scores)**-0.5 for feature, scores in feature_importances.items()}
+    sharpe_ratios = {feature: mean_scores[feature] / std_scores[feature] if std_scores[feature] > 0 else 0 for feature in feature_cols}
+    pos_ratios = {feature: np.mean([1 if score > 0 else 0 for score in scores]) for feature, scores in feature_importances.items()}
+    
     result_df = pd.DataFrame({
-        'feature_importances': feature_importances,
-        'mean_score': mean_scores
+        'feature_importance': mean_scores,
+        'std': std_scores,
+        'feature_sharpe': sharpe_ratios,
+        'pos_ratio': pos_ratios
     }, index=feature_cols)
 
-    return result_df.sort_values(by='feature_importances', ascending=False)
+    return result_df.sort_values(by='feature_importance', ascending=False)
     
 def calculate_sfi_feature_importances(
     model: object,
