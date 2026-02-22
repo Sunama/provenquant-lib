@@ -4,6 +4,7 @@ import numpy as np
 
 from provenquant.core.sample_weight import (
   compute_time_decay,
+  compute_time_decay_exponential,
   compute_abs_return_uniqueness,
   compute_average_uniqueness,
 )
@@ -31,6 +32,49 @@ class TestComputeTimeDecay:
     series = pd.Series([1.0, -2.0, 3.0, -1.0])
     result = compute_time_decay(series)
     assert (result >= 0).all()
+
+
+class TestComputeTimeDecayExponential:
+  def test_basic_decay(self):
+    series = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+    result = compute_time_decay_exponential(series, last_weight=1.0, decay_factor=0.5)
+    # With last_weight=1.0, all weights should be 1.0 regardless of decay_factor
+    assert isinstance(result, pd.Series)
+    assert len(result) == len(series)
+    assert np.allclose(result, 1.0)
+
+  def test_decay_effect(self):
+    series = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0])
+    result = compute_time_decay_exponential(series, last_weight=0.0, decay_factor=0.5)
+    # The newest element (the last one) should have weight 1.0
+    assert result.iloc[-1] == 1.0
+    # The weights should be monotonically non-decreasing (going forward in time)
+    assert (result.diff().iloc[1:] >= 0).all()
+    # Older elements should be smaller than 1.0
+    assert result.iloc[0] < 1.0
+
+  def test_decay_factor_effect(self):
+    series = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0])
+    # Higher decay factor should result in smaller weights for older samples
+    result_high = compute_time_decay_exponential(series, last_weight=0.0, decay_factor=1.0)
+    result_low = compute_time_decay_exponential(series, last_weight=0.0, decay_factor=0.1)
+    
+    # Oldest sample (index 0) should have lower weight for higher decay factor
+    assert result_high.iloc[0] < result_low.iloc[0]
+    # Newest sample is always 1.0
+    assert result_high.iloc[-1] == 1.0
+    assert result_low.iloc[-1] == 1.0
+
+  def test_respects_last_weight_floor(self):
+    series = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0])
+    last_weight = 0.5
+    result = compute_time_decay_exponential(series, last_weight=last_weight, decay_factor=5.0)
+    
+    # For a very high decay factor, the weights should approach last_weight but not go below it
+    assert (result >= last_weight).all()
+    # The oldest sample (most decayed) should be close to last_weight if factor is high.
+    # Actually, it will be (1-L)*exp(-d*(T-u0)) + L
+    assert result.iloc[0] >= last_weight
 
 
 class TestComputeAbsReturnUniqueness:

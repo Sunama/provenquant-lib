@@ -189,8 +189,12 @@ def calculate_mda_feature_importances(
             y_pred = model.predict(X_test)
             baseline_score = accuracy_score(y_test, y_pred, sample_weight=sw_test)
         elif scoring == 'auc':
-            y_pred = model.predict_proba(X_test)[:, 1]
-            baseline_score = roc_auc_score(y_test, y_pred, sample_weight=sw_test)
+            y_pred = model.predict_proba(X_test)
+            if y_pred.shape[1] == 2:
+                y_pred = y_pred[:, 1]
+                baseline_score = roc_auc_score(y_test, y_pred, sample_weight=sw_test)
+            else:
+                baseline_score = roc_auc_score(y_test, y_pred, multi_class='ovr', sample_weight=sw_test)
         else:
             raise ValueError("Unsupported scoring method")
 
@@ -204,6 +208,13 @@ def calculate_mda_feature_importances(
             elif scoring == 'accuracy':
                 y_pred_permuted = model.predict(X_test_permuted)
                 permuted_score = accuracy_score(y_test, y_pred_permuted, sample_weight=sw_test)
+            elif scoring == 'auc':
+                y_pred_permuted = model.predict_proba(X_test_permuted)
+                if y_pred_permuted.shape[1] == 2:
+                    y_pred_permuted = y_pred_permuted[:, 1]
+                    permuted_score = roc_auc_score(y_test, y_pred_permuted, sample_weight=sw_test)
+                else:
+                    permuted_score = roc_auc_score(y_test, y_pred_permuted, multi_class='ovr', sample_weight=sw_test)
 
             feature_importances[feature_cols[feature_idx]].append(baseline_score - permuted_score)
             

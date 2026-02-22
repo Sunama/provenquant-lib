@@ -22,9 +22,35 @@ def compute_time_decay(
         slope = 1.0 / ((last_weight + 1) * weights.iloc[-1])
         
     c = 1.0 - slope * weights.iloc[-1]
+    weights = weights * slope + c
     weights[weights < 0] = 0.0
     
     return weights
+
+def compute_time_decay_exponential(
+    series: pd.Series,
+    last_weight: float=1.0,
+    decay_factor: float=0.5,
+) -> pd.Series:
+    """Apply exponential decay to observed uniqueness
+
+    Args:
+        series (pd.Series): Input series to apply decay on. Note: normally this would be closed prices.
+        last_weight (float, optional): Weight to assign to the last element in the series.
+                                       Defaults to 1.0.
+        decay_factor (float, optional): Decay factor to control the rate of decay. Defaults to 0.5.
+
+    Returns:
+        pd.Series: Series with exponential time-decayed weights applied.
+    """
+    weights = series.cumsum()
+    total = weights.iloc[-1]
+    
+    # Calculate exponential decay where newest observation has weight 1.0
+    # and older ones decay according to the decay_factor and last_weight (floor)
+    decayed_weights = (1.0 - last_weight) * np.exp(-decay_factor * (total - weights)) + last_weight
+    
+    return decayed_weights.clip(lower=0.0)
 
 def compute_abs_return_uniqueness(
     dataframe: pd.DataFrame,
