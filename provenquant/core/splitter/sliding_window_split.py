@@ -6,18 +6,19 @@ class SlidingWindowSplitter:
         self,
         n_splits: int,
         train_day: int,
-        val_day: int,
+        test_day: int,
+        oos_day: int = 0,
         embargo_day: int = 0,
         purging_day: int = 0,
-        step_day: int = None
     ):
         self.n_splits = n_splits
         self.train_day = train_day
-        self.val_day = val_day
+        self.test_day = test_day
+        self.oos_day = oos_day
         self.embargo_day = embargo_day
         self.purging_day = purging_day
         # Default step is validation period
-        self.step_day = step_day if step_day is not None else val_day
+        self.step_day = test_day + oos_day + embargo_day + purging_day
     
     def split(self, start_date, end_date):
         """
@@ -29,21 +30,23 @@ class SlidingWindowSplitter:
             end_date: End date for splitting
             
         Yields:
-            ((train_start, train_end), (test_start, test_end)) tuples
+            ((train_start, train_end), (test_start, test_end), (oos_start, oos_end)) tuples
         """
         splits = []
         current_test_end = end_date
         
         for _ in range(self.n_splits):
-            test_end = current_test_end
-            test_start = test_end - timedelta(days=self.val_day)
-            train_end = test_start - timedelta(days=self.embargo_day + self.purging_day)
+            oos_end = current_test_end
+            oos_start = oos_end - timedelta(days=self.oos_day)
+            test_end = oos_start
+            test_start = test_end - timedelta(days=self.test_day)
+            train_end = test_start - timedelta(days=self.purging_day)
             train_start = train_end - timedelta(days=self.train_day)
             
             if train_start < start_date:
                 break
             
-            splits.append(((train_start, train_end), (test_start, test_end)))
+            splits.append(((train_start, train_end), (test_start, test_end), (oos_start, oos_end)))
             # Move backward by step_day instead of entire window
             current_test_end = test_end - timedelta(days=self.step_day)
         
