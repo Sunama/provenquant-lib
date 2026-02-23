@@ -103,6 +103,7 @@ class TestFeatureImportanceMDA:
     assert 'feature_importance' in result.columns
     assert 'std' in result.columns
     assert 'feature_sharpe' in result.columns
+    assert 'psr' in result.columns
     assert 'pos_ratio' in result.columns
     assert len(result) == 3
   
@@ -129,9 +130,13 @@ class TestFeatureImportanceMDA:
     
     assert isinstance(result, pd.DataFrame)
     assert 'feature_importance' in result.columns
+    assert 'psr' in result.columns
     # MDA is difference in scores, so for accuracy it should be between -1 and 1
     assert all(result['feature_importance'] >= -1)
     assert all(result['feature_importance'] <= 1)
+    # PSR should be between 0 and 1
+    assert all(result['psr'] >= 0)
+    assert all(result['psr'] <= 1)
   
   def test_mda_invalid_scoring(self, sample_dataframe):
     """Test MDA with invalid scoring method"""
