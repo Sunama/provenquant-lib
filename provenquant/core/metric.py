@@ -1,15 +1,15 @@
+from scipy.stats import kurtosis, skew, norm
 import numpy as np
 import pandas as pd
-from scipy.stats import kurtosis, skew, norm
 
 def compute_psr(
-    scores: pd.Series,
+    scores: list,
     target_sharpe: float = 0.0,
 ) -> float:
-    """Compute the Probabilistic Sharpe Ratio (PSR) for a given series of scores.
+    """Compute the Probabilistic Sharpe Ratio (PSR) for a given list of scores.
 
     Args:
-        scores (pd.Series): Series of scores to evaluate.
+        scores (list): List of scores to evaluate.
         target_sharpe (float, optional): The target Sharpe Ratio to compare against. Defaults to 0.0.
     Returns:
         float: The computed PSR value.
@@ -18,8 +18,8 @@ def compute_psr(
     if n < 3:
         return 0.0  # Need enough samples for Skewness and Kurtosis
 
-    mean_return = scores.mean()
-    std_return = scores.std(ddof=1)
+    mean_return = np.mean(scores)
+    std_return = np.std(scores)
 
     if std_return == 0:
         return 0.0
