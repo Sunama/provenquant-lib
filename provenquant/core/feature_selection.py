@@ -1,5 +1,5 @@
 from provenquant.core.cross_validation import PurgedKFold
-from provenquant.core.metric import compute_psr
+from provenquant.core.metric import calculate_psr
 from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from statsmodels.tools.sm_exceptions import InterpolationWarning
@@ -222,7 +222,7 @@ def calculate_mda_feature_importances(
     mean_scores = {feature: np.mean(scores) for feature, scores in feature_importances.items()}
     std_scores = {feature: np.std(scores) * len(scores)**-0.5 for feature, scores in feature_importances.items()}
     sharpe_ratios = {feature: mean_scores[feature] / std_scores[feature] if std_scores[feature] > 0 else 0 for feature in feature_cols}
-    psr_values = {feature: compute_psr(pd.Series(scores)) for feature, scores in feature_importances.items()}
+    psr_values = {feature: calculate_psr(pd.Series(scores)) for feature, scores in feature_importances.items()}
     pos_ratios = {feature: np.mean([1 if score > 0 else 0 for score in scores]) for feature, scores in feature_importances.items()}
     
     result_df = pd.DataFrame({

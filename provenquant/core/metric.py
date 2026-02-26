@@ -2,7 +2,7 @@ from scipy.stats import kurtosis, skew, norm
 import numpy as np
 import pandas as pd
 
-def compute_psr(
+def calculate_psr(
     scores: list,
     target_sharpe: float = 0.0,
 ) -> float:
