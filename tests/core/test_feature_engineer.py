@@ -53,7 +53,7 @@ class TestGetFracDiffs:
   def test_single_series_sequential(self):
     """Test fractional differencing on a single series."""
     series = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
-    result = get_frac_diffs([series], d=0.5, num_processes=1)
+    result = get_frac_diffs([series], d=0.5, num_threads=1)
     
     assert isinstance(result, list)
     assert len(result) == 1
@@ -66,7 +66,7 @@ class TestGetFracDiffs:
     series2 = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0])
     series3 = pd.Series([100.0, 200.0, 300.0, 400.0, 500.0])
     
-    result = get_frac_diffs([series1, series2, series3], d=0.5, num_processes=1)
+    result = get_frac_diffs([series1, series2, series3], d=0.5, num_threads=1)
     
     assert isinstance(result, list)
     assert len(result) == 3
@@ -80,7 +80,7 @@ class TestGetFracDiffs:
     series2 = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0])
     series3 = pd.Series([100.0, 200.0, 300.0, 400.0, 500.0])
     
-    result = get_frac_diffs([series1, series2, series3], d=0.5, num_processes=2)
+    result = get_frac_diffs([series1, series2, series3], d=0.5, num_threads=2)
     
     assert isinstance(result, list)
     assert len(result) == 3
@@ -90,7 +90,7 @@ class TestGetFracDiffs:
   
   def test_empty_list(self):
     """Test with empty series list."""
-    result = get_frac_diffs([], d=0.5, num_processes=1)
+    result = get_frac_diffs([], d=0.5, num_threads=1)
     
     assert isinstance(result, list)
     assert len(result) == 0
@@ -100,7 +100,7 @@ class TestGetFracDiffs:
     series1 = pd.Series([1.0, 2.0, 3.0])
     series2 = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0])
     
-    result = get_frac_diffs([series1, series2], d=0.5, num_processes=1)
+    result = get_frac_diffs([series1, series2], d=0.5, num_threads=1)
     
     assert len(result) == 2
     assert len(result[0]) == 3
@@ -111,8 +111,8 @@ class TestGetFracDiffs:
     series1 = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
     series2 = pd.Series([10.0, 20.0, 30.0, 40.0, 50.0])
     
-    result_seq = get_frac_diffs([series1, series2], d=0.5, num_processes=1)
-    result_par = get_frac_diffs([series1, series2], d=0.5, num_processes=2)
+    result_seq = get_frac_diffs([series1, series2], d=0.5, num_threads=1)
+    result_par = get_frac_diffs([series1, series2], d=0.5, num_threads=2)
     
     assert len(result_seq) == len(result_par)
     for seq, par in zip(result_seq, result_par):
@@ -123,7 +123,7 @@ class TestGetFracDiffs:
     series1 = pd.Series([1.0, 2.0, 3.0])
     series2 = pd.Series([4.0, 5.0, 6.0])
     
-    result = get_frac_diffs([series1, series2], d=0, num_processes=1)
+    result = get_frac_diffs([series1, series2], d=0, num_threads=1)
     
     pd.testing.assert_series_equal(result[0], series1)
     pd.testing.assert_series_equal(result[1], series2)
@@ -133,7 +133,7 @@ class TestGetFracDiffs:
     series1 = pd.Series([1.0, 2.0, 3.0], name='price')
     series2 = pd.Series([10.0, 20.0, 30.0], name='volume')
     
-    result = get_frac_diffs([series1, series2], d=0.5, num_processes=1)
+    result = get_frac_diffs([series1, series2], d=0.5, num_threads=1)
     
     assert len(result) == 2
     assert isinstance(result[0], pd.Series)
@@ -166,7 +166,7 @@ class TestGetFracDiffDf:
   def test_single_column_sequential(self):
     """Test fractional differencing on single column with sequential processing."""
     df = pd.DataFrame({'price': [1.0, 2.0, 3.0, 4.0, 5.0]})
-    result = get_frac_diff_df(df, cols=['price'], d=0.5, num_processes=1)
+    result = get_frac_diff_df(df, cols=['price'], d=0.5, num_threads=1)
     
     assert 'price_frac_diff' in result.columns
     assert len(result) == len(df)
@@ -178,7 +178,7 @@ class TestGetFracDiffDf:
       'price': [1.0, 2.0, 3.0, 4.0, 5.0],
       'volume': [100.0, 200.0, 300.0, 400.0, 500.0]
     })
-    result = get_frac_diff_df(df, cols=['price', 'volume'], d=0.5, num_processes=1)
+    result = get_frac_diff_df(df, cols=['price', 'volume'], d=0.5, num_threads=1)
     
     assert 'price_frac_diff' in result.columns
     assert 'volume_frac_diff' in result.columns
@@ -187,7 +187,7 @@ class TestGetFracDiffDf:
   def test_custom_prefix_postfix(self):
     """Test with custom prefix and postfix."""
     df = pd.DataFrame({'price': [1.0, 2.0, 3.0]})
-    result = get_frac_diff_df(df, cols=['price'], d=0.5, prefix='new_', postfix='_modified', num_processes=1)
+    result = get_frac_diff_df(df, cols=['price'], d=0.5, prefix='new_', postfix='_modified', num_threads=1)
     
     assert 'new_price_modified' in result.columns
     assert 'price' in result.columns
@@ -195,14 +195,14 @@ class TestGetFracDiffDf:
   def test_preserves_original_columns(self):
     """Test that original columns are preserved."""
     df = pd.DataFrame({'price': [1.0, 2.0, 3.0, 4.0, 5.0]})
-    result = get_frac_diff_df(df, cols=['price'], d=0.5, num_processes=1)
+    result = get_frac_diff_df(df, cols=['price'], d=0.5, num_threads=1)
     
     pd.testing.assert_series_equal(result['price'], df['price'])
   
   def test_empty_columns_list(self):
     """Test with empty columns list."""
     df = pd.DataFrame({'price': [1.0, 2.0, 3.0]})
-    result = get_frac_diff_df(df, cols=[], d=0.5, num_processes=1)
+    result = get_frac_diff_df(df, cols=[], d=0.5, num_threads=1)
     
     pd.testing.assert_frame_equal(result, df)
   
@@ -212,7 +212,7 @@ class TestGetFracDiffDf:
       'price': [1.0, 2.0, 3.0, 4.0, 5.0],
       'volume': [100.0, 200.0, 300.0, 400.0, 500.0]
     })
-    result = get_frac_diff_df(df, cols=['price', 'volume'], d=0.5, num_processes=2)
+    result = get_frac_diff_df(df, cols=['price', 'volume'], d=0.5, num_threads=2)
     
     assert 'price_frac_diff' in result.columns
     assert 'volume_frac_diff' in result.columns
@@ -222,8 +222,8 @@ class TestGetFracDiffDf:
     """Test with different differencing orders."""
     df = pd.DataFrame({'price': [1.0, 2.0, 3.0, 4.0, 5.0]})
     
-    result_d_0 = get_frac_diff_df(df, cols=['price'], d=0, num_processes=1)
-    result_d_1 = get_frac_diff_df(df, cols=['price'], d=1, num_processes=1)
-    result_d_0_5 = get_frac_diff_df(df, cols=['price'], d=0.5, num_processes=1)
+    result_d_0 = get_frac_diff_df(df, cols=['price'], d=0, num_threads=1)
+    result_d_1 = get_frac_diff_df(df, cols=['price'], d=1, num_threads=1)
+    result_d_0_5 = get_frac_diff_df(df, cols=['price'], d=0.5, num_threads=1)
     
     assert len(result_d_0) == len(result_d_1) == len(result_d_0_5)

@@ -85,8 +85,8 @@ def test_get_volume_imbalance_bars(sample_tick_data):
 
 def test_get_dollar_bars_multiprocessing(sample_tick_data):
     threshold = 5000
-    dollar_bars_seq = get_dollar_bars(sample_tick_data, threshold=threshold, num_processes=1)
-    dollar_bars_parallel = get_dollar_bars(sample_tick_data, threshold=threshold, num_processes=2)
+    dollar_bars_seq = get_dollar_bars(sample_tick_data, threshold=threshold, num_threads=1)
+    dollar_bars_parallel = get_dollar_bars(sample_tick_data, threshold=threshold, num_threads=2)
     
     # Results should be identical or very similar (depending on how chunks are handled)
     # The current implementation handles carry_over_state, so they should match

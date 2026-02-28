@@ -130,7 +130,7 @@ def get_dollar_bars(
     dataframe: pd.DataFrame,
     threshold: float,
     datetime_col: str='index',
-    num_processes: int = 1,
+    num_threads: int = 1,
 ) -> pd.DataFrame:
     """Generate dollar bars from tick data.
 
@@ -138,7 +138,7 @@ def get_dollar_bars(
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         threshold (float): Dollar threshold for each bar.
         datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
-        num_processes (int, optional): Number of processes. Defaults to 1 (sequential). Set > 1 for multiprocessing.
+        num_threads (int, optional): Number of processes. Defaults to 1 (sequential). Set > 1 for multiprocessing.
         
     Returns:
         pd.DataFrame: DataFrame containing dollar bars.
@@ -152,12 +152,12 @@ def get_dollar_bars(
     df['price_change'] = df['close'].diff()
     
     # Split data into chunks
-    num_chunks = max(1, num_processes)
+    num_chunks = max(1, num_threads)
     chunk_size = max(1, len(df) // num_chunks)
     chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
     
-    # Process chunks (sequentially if num_processes=1, in parallel otherwise)
-    with Pool(processes=num_processes if num_processes > 1 else 1) as pool:
+    # Process chunks (sequentially if num_threads=1, in parallel otherwise)
+    with Pool(processes=num_threads if num_threads > 1 else 1) as pool:
         process_func = partial(_process_dollar_bars_chunk, threshold=threshold)
         results = pool.map(process_func, [(chunk, i) for i, chunk in enumerate(chunks)])
     

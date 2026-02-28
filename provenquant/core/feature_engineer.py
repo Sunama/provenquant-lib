@@ -53,25 +53,25 @@ def _process_column(col: str, df: pd.DataFrame, d: float, prefix: str, postfix: 
 def get_frac_diffs(
     series_list: list[pd.Series],
     d: float,
-    num_processes: int = 1,
+    num_threads: int = 1,
 ) -> list[pd.Series]:
     """Compute fractionally differenced series for a list of series.
     
     Args:
         series_list (list[pd.Series]): List of original time series.
         d (float): Differencing order.
-        num_processes (int, optional): Number of processes for parallel computation. Defaults to 1.
+        num_threads (int, optional): Number of processes for parallel computation. Defaults to 1.
     
     Returns:
         list[pd.Series]: List of fractionally differenced series.
     """
     
-    if num_processes == 1:
+    if num_threads == 1:
         # Sequential processing
         return [get_frac_diff(series, d) for series in series_list]
     else:
         # Parallel processing
-        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        with ProcessPoolExecutor(max_workers=num_threads) as executor:
             results = list(executor.map(partial(get_frac_diff, d=d), series_list))
         return results
 
@@ -81,7 +81,7 @@ def get_frac_diff_df(
   d: float,
   prefix: str = '',
   postfix: str = '_frac_diff',
-  num_processes: int = 1,
+  num_threads: int = 1,
 ) -> pd.DataFrame:
     """Compute fractionally differenced DataFrame.
     
@@ -91,7 +91,7 @@ def get_frac_diff_df(
         d (float): Differencing order.
         prefix (str, optional): Prefix for new column names. Defaults to ''.
         postfix (str, optional): Postfix for new column names. Defaults to '_frac_diff'.
-        num_processes (int, optional): Number of processes for parallel computation. Defaults to 1.
+        num_threads (int, optional): Number of processes for parallel computation. Defaults to 1.
     
     Returns:
         pd.DataFrame: Fractionally differenced DataFrame.
@@ -99,14 +99,14 @@ def get_frac_diff_df(
     
     frac_diff_df = df.copy()
     
-    if num_processes == 1:
+    if num_threads == 1:
         # Sequential processing
         for col in cols:
             frac_diff_df[f"{prefix}{col}{postfix}"] = get_frac_diff(df[col], d)
     else:
         # Parallel processing
         process_func = partial(_process_column, df=df, d=d, prefix=prefix, postfix=postfix)
-        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        with ProcessPoolExecutor(max_workers=num_threads) as executor:
             results = executor.map(process_func, cols)
             for new_col_name, frac_diff_series in results:
                 frac_diff_df[new_col_name] = frac_diff_series
