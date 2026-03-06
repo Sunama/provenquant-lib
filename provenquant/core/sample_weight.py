@@ -89,7 +89,7 @@ def compute_abs_return_uniqueness(
 def compute_average_uniqueness(
     dataframe: pd.DataFrame,
     t1_col: str = 't1',
-    datetime_col: str = 'index',
+    time_col: str = 'index',
 ) -> pd.Series:
     """Compute average uniqueness (u_i) for each event.
     
@@ -98,16 +98,16 @@ def compute_average_uniqueness(
     Args:
         dataframe (pd.DataFrame): DataFrame containing the events.
         t1_col (str): Column name for the end time of events (vertical barrier). Defaults to 't1'.
-        datetime_col (str): Column name for the start time of events. Defaults to 'index'.
+        time_col (str): Column name for the start time of events. Defaults to 'index'.
                                      
     Returns:
         pd.Series: Series with average uniqueness for each event.
     """
     # Create list of event spans: (start, end)
-    if datetime_col == 'index':
+    if time_col == 'index':
         start_times = dataframe.index
     else:
-        start_times = dataframe[datetime_col]
+        start_times = dataframe[time_col]
     
     events = list(zip(start_times, dataframe[t1_col]))
     

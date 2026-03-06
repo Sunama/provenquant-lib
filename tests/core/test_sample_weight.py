@@ -159,11 +159,11 @@ class TestComputeAverageUniqueness:
     result = compute_average_uniqueness(df)
     assert result.iloc[0] == 0.0
 
-  def test_non_index_datetime_col(self):
+  def test_non_index_time_col(self):
     df = pd.DataFrame({
       'start_time': [1, 2, 3],
       't1': [3, 4, 5],
     })
-    result = compute_average_uniqueness(df, datetime_col='start_time')
+    result = compute_average_uniqueness(df, time_col='start_time')
     assert isinstance(result, pd.Series)
     assert len(result) == 3

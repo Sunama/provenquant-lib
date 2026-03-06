@@ -23,14 +23,14 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
     bar_high = None
     bar_low = None
     bar_volume = 0
-    bar_start_date = None
+    bar_start_time = None
     
     for idx, row in chunk.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
             bar_low = row['low']
-            bar_start_date = idx
+            bar_start_time = idx
         
         cum_dollar_value += row['dollar_value']
         cum_ticks += 1
@@ -50,7 +50,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
         if cum_dollar_value >= threshold:
             bar_close = row['close']
             bars.append({
-                'start_date': bar_start_date,
+                'start_time': bar_start_time,
                 'open': bar_open,
                 'high': bar_high,
                 'low': bar_low,
@@ -60,7 +60,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx
+                'end_time': idx
             })
             cum_dollar_value = 0.0
             cum_ticks = 0
@@ -70,7 +70,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
             bar_high = None
             bar_low = None
             bar_volume = 0
-            bar_start_date = None
+            bar_start_time = None
     
     # Return final state for handling incomplete bars at chunk boundary
     final_state = {
@@ -82,7 +82,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
         'bar_high': bar_high,
         'bar_low': bar_low,
         'bar_volume': bar_volume,
-        'bar_start_date': bar_start_date
+        'bar_start_time': bar_start_time
     }
     
     return bars, final_state
@@ -90,24 +90,24 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
 def convert_standard_bars_to_larger_timeframe(
     dataframe: pd.DataFrame,
     timeframe: str,
-    datetime_col: str='index',
+    time_col: str='index',
 ) -> pd.DataFrame:
     """Convert standard bars to a larger timeframe (e.g., 1-minute bars to 5-minute bars).
 
     Args:
         dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
         timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
         
     Returns:
         pd.DataFrame: DataFrame containing resampled bars.
     """
     df = dataframe.copy()
     
-    if datetime_col != 'index':
-        # Ensure datetime_col is datetime type
-        df[datetime_col] = pd.to_datetime(df[datetime_col])
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        # Ensure time_col is datetime type
+        df[time_col] = pd.to_datetime(df[time_col])
+        df.set_index(time_col, inplace=True)
     elif not isinstance(df.index, pd.DatetimeIndex):
         # If it's the index, ensure it's datetime type
         df.index = pd.to_datetime(df.index)
@@ -120,16 +120,16 @@ def convert_standard_bars_to_larger_timeframe(
         'volume': 'sum'
     }).dropna()
     
-    if datetime_col != 'index':
+    if time_col != 'index':
         # Restore the datetime col as index if that was the original structure
-        resampled.index.name = datetime_col
+        resampled.index.name = time_col
     
     return resampled
 
 def get_dollar_bars(
     dataframe: pd.DataFrame,
     threshold: float,
-    datetime_col: str='index',
+    time_col: str='index',
     num_threads: int = 1,
 ) -> pd.DataFrame:
     """Generate dollar bars from tick data.
@@ -137,15 +137,15 @@ def get_dollar_bars(
     Args:
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         threshold (float): Dollar threshold for each bar.
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
         num_threads (int, optional): Number of processes. Defaults to 1 (sequential). Set > 1 for multiprocessing.
         
     Returns:
         pd.DataFrame: DataFrame containing dollar bars.
     """
     df = dataframe.copy()
-    if datetime_col != 'index':
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
     
     # Pre-calculate to ensure consistency across chunks when multiprocessing
     df['dollar_value'] = df['close'] * df['volume']
@@ -177,7 +177,7 @@ def get_dollar_bars(
             first_bar['cum_dollar'] += carry_over_state['cum_dollar_value']
             first_bar['buy_volume'] += carry_over_state['cum_buy_volume']
             first_bar['sell_volume'] += carry_over_state['cum_sell_volume']
-            first_bar['start_date'] = carry_over_state['bar_start_date']
+            first_bar['start_time'] = carry_over_state['bar_start_time']
         
         all_bars.extend(chunk_bars)
         carry_over_state = final_state
@@ -185,7 +185,7 @@ def get_dollar_bars(
     # Handle incomplete bar from last chunk
     if carry_over_state and carry_over_state['bar_open'] is not None:
         all_bars.append({
-            'start_date': carry_over_state['bar_start_date'],
+            'start_time': carry_over_state['bar_start_time'],
             'open': carry_over_state['bar_open'],
             'high': carry_over_state['bar_high'],
             'low': carry_over_state['bar_low'],
@@ -195,11 +195,11 @@ def get_dollar_bars(
             'cum_dollar': carry_over_state['cum_dollar_value'],
             'buy_volume': carry_over_state['cum_buy_volume'],
             'sell_volume': carry_over_state['cum_sell_volume'],
-            'end_date': df.index[-1] if len(df) > 0 else carry_over_state['bar_start_date']
+            'end_time': df.index[-1] if len(df) > 0 else carry_over_state['bar_start_time']
         })
     
     bars_df = pd.DataFrame(all_bars)
-    bars_df.set_index('end_date', inplace=True)
+    bars_df.set_index('end_time', inplace=True)
     
     return bars_df
 
@@ -207,7 +207,7 @@ def get_dollar_imbalance_bars(
   dataframe: pd.DataFrame,
   expected_imbalance_window: int,
   exp_num_ticks_initial: int,
-  datetime_col: str='index',
+  time_col: str='index',
 ) -> pd.DataFrame:
     """Generate dollar imbalance bars from tick data (AFML Chapter 2).
 
@@ -215,13 +215,13 @@ def get_dollar_imbalance_bars(
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         expected_imbalance_window (int): Window size for expected imbalance calculation (EMA).
         exp_num_ticks_initial (int): Initial expected number of ticks for the first bar.
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
     Returns:
         pd.DataFrame: DataFrame containing dollar imbalance bars.
     """
     df = dataframe.copy()
-    if datetime_col != 'index':
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
     
     # Apply tick rule: +1 for uptick, -1 for downtick
     df['price_diff'] = df['close'].diff()
@@ -256,14 +256,14 @@ def get_dollar_imbalance_bars(
     bar_high = None
     bar_low = None
     bar_volume = 0
-    bar_start_date = None
+    bar_start_time = None
     
     for idx, row in df.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
             bar_low = row['low']
-            bar_start_date = idx
+            bar_start_time = idx
         
         # Accumulate absolute imbalance
         cum_imbalance += abs(row['dollar_imbalance'])
@@ -284,7 +284,7 @@ def get_dollar_imbalance_bars(
         if cum_imbalance >= exp_imbalance_value:
             bar_close = row['close']
             bars.append({
-                'start_date': bar_start_date,
+                'start_time': bar_start_time,
                 'open': bar_open,
                 'high': bar_high,
                 'low': bar_low,
@@ -294,7 +294,7 @@ def get_dollar_imbalance_bars(
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx
+                'end_time': idx
             })
             cum_imbalance = 0.0
             cum_ticks = 0
@@ -305,30 +305,30 @@ def get_dollar_imbalance_bars(
             bar_high = None
             bar_low = None
             bar_volume = 0
-            bar_start_date = None
+            bar_start_time = None
     
     bars_df = pd.DataFrame(bars)
-    bars_df.set_index('end_date', inplace=True)
+    bars_df.set_index('end_time', inplace=True)
     
     return bars_df
 
 def get_tick_bars(
     dataframe: pd.DataFrame,
     tick_bar_size: int,
-    datetime_col: str='index',
+    time_col: str='index',
 ) -> pd.DataFrame:
     """Generate tick bars from tick data.
 
     Args:
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         tick_bar_size (int): Number of ticks for each bar.
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
     Returns:
         pd.DataFrame: DataFrame containing tick bars.
     """
     df = dataframe.copy()
-    if datetime_col != 'index':
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
     
     df['price_change'] = df['close'].diff()
     
@@ -341,14 +341,14 @@ def get_tick_bars(
     bar_open = None
     bar_high = None
     bar_low = None
-    bar_start_date = None
+    bar_start_time = None
     
     for idx, row in df.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
             bar_low = row['low']
-            bar_start_date = idx
+            bar_start_time = idx
         
         tick_count += 1
         cum_volume += row['volume']
@@ -369,7 +369,7 @@ def get_tick_bars(
         if tick_count >= tick_bar_size:
             bar_close = row['close']
             bars.append({
-                'start_date': bar_start_date,
+                'start_time': bar_start_time,
                 'open': bar_open,
                 'high': bar_high,
                 'low': bar_low,
@@ -379,7 +379,7 @@ def get_tick_bars(
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx
+                'end_time': idx
             })
             tick_count = 0
             cum_volume = 0
@@ -389,30 +389,30 @@ def get_tick_bars(
             bar_open = None
             bar_high = None
             bar_low = None
-            bar_start_date = None
+            bar_start_time = None
     
     bars_df = pd.DataFrame(bars)
-    bars_df.set_index('end_date', inplace=True)
+    bars_df.set_index('end_time', inplace=True)
     
     return bars_df
 
 def get_volume_bars(
     dataframe: pd.DataFrame,
     volume_bar_size: float,
-    datetime_col: str='index',
+    time_col: str='index',
 ) -> pd.DataFrame:
     """Generate volume bars from tick data.
 
     Args:
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         volume_bar_size (float): Volume threshold for each bar.
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
     Returns:
         pd.DataFrame: DataFrame containing volume bars.
     """
     df = dataframe.copy()
-    if datetime_col != 'index':
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
     
     df['price_change'] = df['close'].diff()
     
@@ -425,14 +425,14 @@ def get_volume_bars(
     bar_open = None
     bar_high = None
     bar_low = None
-    bar_start_date = None
+    bar_start_time = None
     
     for idx, row in df.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
             bar_low = row['low']
-            bar_start_date = idx
+            bar_start_time = idx
         
         cum_volume += row['volume']
         cum_ticks += 1
@@ -453,7 +453,7 @@ def get_volume_bars(
         if cum_volume >= volume_bar_size:
             bar_close = row['close']
             bars.append({
-                'start_date': bar_start_date,
+                'start_time': bar_start_time,
                 'open': bar_open,
                 'high': bar_high,
                 'low': bar_low,
@@ -463,7 +463,7 @@ def get_volume_bars(
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx
+                'end_time': idx
             })
             cum_volume = 0.0
             cum_ticks = 0
@@ -473,10 +473,10 @@ def get_volume_bars(
             bar_open = None
             bar_high = None
             bar_low = None
-            bar_start_date = None
+            bar_start_time = None
     
     bars_df = pd.DataFrame(bars)
-    bars_df.set_index('end_date', inplace=True)
+    bars_df.set_index('end_time', inplace=True)
     
     return bars_df
 
@@ -484,7 +484,7 @@ def get_volume_imbalance_bars(
   dataframe: pd.DataFrame,
   expected_imbalance_window: int,
   exp_num_ticks_initial: int,
-  datetime_col: str='index',
+  time_col: str='index',
 ) -> pd.DataFrame:
     """Generate volume imbalance bars from tick data (AFML Chapter 2).
 
@@ -492,13 +492,13 @@ def get_volume_imbalance_bars(
         dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
         expected_imbalance_window (int): Window size for expected imbalance calculation (EMA).
         exp_num_ticks_initial (int): Initial expected number of ticks for the first bar.
-        datetime_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
     Returns:
         pd.DataFrame: DataFrame containing volume imbalance bars.
     """
     df = dataframe.copy()
-    if datetime_col != 'index':
-        df.set_index(datetime_col, inplace=True)
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
     
     # Apply tick rule: +1 for uptick, -1 for downtick
     df['price_diff'] = df['close'].diff()
@@ -533,14 +533,14 @@ def get_volume_imbalance_bars(
     bar_high = None
     bar_low = None
     bar_volume = 0
-    bar_start_date = None
+    bar_start_time = None
     
     for idx, row in df.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
             bar_low = row['low']
-            bar_start_date = idx
+            bar_start_time = idx
         
         # Accumulate absolute imbalance
         cum_imbalance += abs(row['volume_imbalance'])
@@ -561,7 +561,7 @@ def get_volume_imbalance_bars(
         if cum_imbalance >= exp_imbalance_value:
             bar_close = row['close']
             bars.append({
-                'start_date': bar_start_date,
+                'start_time': bar_start_time,
                 'open': bar_open,
                 'high': bar_high,
                 'low': bar_low,
@@ -571,7 +571,7 @@ def get_volume_imbalance_bars(
                 'cum_dollar': cum_dollar_value,
                 'buy_volume': cum_buy_volume,
                 'sell_volume': cum_sell_volume,
-                'end_date': idx
+                'end_time': idx
             })
             cum_imbalance = 0.0
             cum_ticks = 0
@@ -582,9 +582,9 @@ def get_volume_imbalance_bars(
             bar_high = None
             bar_low = None
             bar_volume = 0
-            bar_start_date = None
+            bar_start_time = None
     
     bars_df = pd.DataFrame(bars)
-    bars_df.set_index('end_date', inplace=True)
+    bars_df.set_index('end_time', inplace=True)
     
     return bars_df

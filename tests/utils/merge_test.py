@@ -46,7 +46,7 @@ def test_match_merge_dataframe_with_missing_dates():
     assert result['value'].iloc[2] == 30
 
 
-def test_match_merge_series_with_datetime_column():
+def test_match_merge_series_with_time_column():
     """Test match_merge_series with datetime column."""
     from_series = pd.Series([10, 20, 30], index=pd.date_range('2024-01-01', periods=3))
     to_df = pd.DataFrame({

@@ -59,7 +59,7 @@ def test_filtrate_tripple_label_barrier_basic(simple_dataframe):
         df,
         cusum_threshold=0.01,
         vertical_barrier=5,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Check structure
@@ -81,7 +81,7 @@ def test_filtrate_tripple_label_barrier_with_column(simple_dataframe):
         df_with_col,
         cusum_threshold=0.01,
         vertical_barrier=5,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Check structure
@@ -99,7 +99,7 @@ def test_filtrate_tripple_label_barrier_high_threshold(simple_dataframe):
         df,
         cusum_threshold=0.5,  # Very high threshold
         vertical_barrier=5,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Higher threshold should result in fewer events
@@ -115,7 +115,7 @@ def test_filtrate_tripple_label_barrier_low_threshold(volatile_dataframe):
         df,
         cusum_threshold=0.001,  # Very low threshold
         vertical_barrier=5,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Low threshold should result in more events for volatile data
@@ -131,7 +131,7 @@ def test_filtrate_tripple_label_barrier_vertical_barrier_boundary(simple_datafra
         df,
         cusum_threshold=0.01,
         vertical_barrier=1000,  # Very large barrier
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     if len(result) > 0:
@@ -149,7 +149,7 @@ def test_filtrate_dynamic_tripple_label_barrier_basic(simple_dataframe):
         df,
         cusum_threshold_col='dynamic_threshold',
         vertical_barrier=5,
-        datetime_col='index'
+        time_col='index'
     )
     
     # Check structure
@@ -171,7 +171,7 @@ def test_filtrate_dynamic_tripple_label_barrier_variable_threshold(volatile_data
         df,
         cusum_threshold_col='dynamic_threshold',
         vertical_barrier=5,
-        datetime_col='index'
+        time_col='index'
     )
     
     assert isinstance(result, pd.DataFrame)
@@ -194,7 +194,7 @@ def test_filtrate_tripple_label_barrier_preserves_data():
         df,
         cusum_threshold=0.01,
         vertical_barrier=3,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     if len(result) > 0:
@@ -420,7 +420,7 @@ def test_integration_filtrate_and_label(simple_dataframe):
         df,
         cusum_threshold=0.01,
         vertical_barrier=5,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     if len(filtered) > 0:
@@ -452,7 +452,7 @@ def test_filtrate_empty_result():
         df,
         cusum_threshold=0.5,  # Very high threshold
         vertical_barrier=1,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Result should be empty dataframe
@@ -486,14 +486,14 @@ def test_filtrate_different_vertical_barriers(volatile_dataframe):
         df,
         cusum_threshold=0.01,
         vertical_barrier=2,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     result_large = filtrate_tripple_label_barrier(
         df,
         cusum_threshold=0.01,
         vertical_barrier=10,
-        datetime_col='datetime'
+        time_col='datetime'
     )
     
     # Both should have same number of events but different t1 values

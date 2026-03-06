@@ -35,7 +35,7 @@ def filtrate_dynamic_tripple_label_barrier(
     dataframe: pd.DataFrame,
     cusum_threshold_col: str,
     vertical_barrier: int,
-    datetime_col: str = 'index',
+    time_col: str = 'index',
 ) -> pd.DataFrame:
     """Filtrate triple barrier labels from raw DataFrame using dynamic CUSUM thresholds.
        Use this function before applying triple barrier labeling or in
@@ -45,13 +45,13 @@ def filtrate_dynamic_tripple_label_barrier(
         dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
         cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
         vertical_barrier (int): Ticks for vertical barrier.
-        datetime_col (str): Name of the datetime column. Defaults to 'index'.
+        time_col (str): Name of the datetime column. Defaults to 'index'.
     Returns:
         pd.DataFrame: DataFrame with t1.
     """
     # CUSUM Filter with dynamic thresholds
-    if datetime_col != 'index':
-        close_prices = dataframe.set_index(datetime_col)['close']
+    if time_col != 'index':
+        close_prices = dataframe.set_index(time_col)['close']
     else:
         close_prices = dataframe['close']
     
@@ -85,13 +85,13 @@ def filtrate_dynamic_tripple_label_barrier(
     df['t1'] = t1
     
     # Add another columns in dataframe to df
-    if datetime_col == 'index':
+    if time_col == 'index':
         for col in dataframe.columns:
             df[col] = dataframe.loc[t_events][col]
     else:
         for col in dataframe.columns:
-            if col != datetime_col:
-                df[col] = dataframe.set_index(datetime_col).loc[t_events][col]
+            if col != time_col:
+                df[col] = dataframe.set_index(time_col).loc[t_events][col]
     
     return df
 
@@ -99,7 +99,7 @@ def filtrate_tripple_label_barrier(
     dataframe: pd.DataFrame,
     cusum_threshold: float,
     vertical_barrier: int,
-    datetime_col: str = 'index',
+    time_col: str = 'index',
 ) -> pd.DataFrame:
     """Filtrate triple barrier labels from raw DataFrame.
        Use this function before applying triple barrier labeling or in
@@ -109,14 +109,14 @@ def filtrate_tripple_label_barrier(
         dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
         cusum_threshold (float): Threshold for CUSUM filter in percentage.
         vertical_barrier (int): Ticks for vertical barrier.
-        datetime_col (str): Name of the datetime column. Defaults to 'index'.
+        time_col (str): Name of the datetime column. Defaults to 'index'.
 
     Returns:
         pd.DataFrame: DataFrame with t1.
     """
     # CUSUM Filter
-    if datetime_col != 'index':
-        close_prices = dataframe.set_index(datetime_col)['close']
+    if time_col != 'index':
+        close_prices = dataframe.set_index(time_col)['close']
     else:
         close_prices = dataframe['close']
     
@@ -150,15 +150,15 @@ def filtrate_tripple_label_barrier(
     df['t1'] = t1
     
     # Add another columns in dataframe to df
-    if datetime_col == 'index':
+    if time_col == 'index':
         # datetime is already the index
         for col in dataframe.columns:
             df[col] = dataframe.loc[t_events][col]
     else:
         # datetime is a column, need to set it as index first
         for col in dataframe.columns:
-            if col != datetime_col:
-                df[col] = dataframe.set_index(datetime_col).loc[t_events][col]
+            if col != time_col:
+                df[col] = dataframe.set_index(time_col).loc[t_events][col]
     
     return df
 

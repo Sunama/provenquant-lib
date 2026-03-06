@@ -20,20 +20,20 @@ class SlidingWindowSplitter:
         # Default step is validation period
         self.step_day = test_day + oos_day + embargo_day + purging_day
     
-    def split(self, start_date, end_date):
+    def split(self, start_time, end_time):
         """
         Split data into walk-forward train/test periods.
-        Starts from end_date and calculates backwards, then returns splits in chronological order.
+        Starts from end_time and calculates backwards, then returns splits in chronological order.
         
         Args:
-            start_date: Start date for splitting
-            end_date: End date for splitting
+            start_time: Start date for splitting
+            end_time: End date for splitting
             
         Yields:
             ((train_start, train_end), (test_start, test_end), (oos_start, oos_end)) tuples
         """
         splits = []
-        current_test_end = end_date
+        current_test_end = end_time
         
         for _ in range(self.n_splits):
             oos_end = current_test_end
@@ -43,7 +43,7 @@ class SlidingWindowSplitter:
             train_end = test_start - timedelta(days=self.purging_day)
             train_start = train_end - timedelta(days=self.train_day)
             
-            if train_start < start_date:
+            if train_start < start_time:
                 break
             
             splits.append(((train_start, train_end), (test_start, test_end), (oos_start, oos_end)))

@@ -14,10 +14,10 @@ class TestSlidingWindowSplitter:
             oos_day=5
         )
         
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-06-01")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-06-01")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         assert len(splits) == 3
         
         # Check chronological order
@@ -35,10 +35,10 @@ class TestSlidingWindowSplitter:
             oos_day=5
         )
         
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-06-01")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-06-01")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         assert len(splits) == 1
         
         split = splits[0]
@@ -59,10 +59,10 @@ class TestSlidingWindowSplitter:
             oos_day=oos_day
         )
         
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-03-01")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-03-01")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         (train_start, train_end), (test_start, test_end), (oos_start, oos_end) = splits[0]
         
         assert (train_end - train_start).days == train_day
@@ -79,10 +79,10 @@ class TestSlidingWindowSplitter:
             purging_day=purging_day
         )
         
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-03-01")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-03-01")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         (train_start, train_end), (test_start, test_end), _ = splits[0]
         
         # Implementation: train_end = test_start - timedelta(days=self.purging_day)
@@ -97,17 +97,17 @@ class TestSlidingWindowSplitter:
         )
         
         # Only 50 days of data
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-02-20")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-02-20")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         assert len(splits) == 0
 
     def test_backward_calculation_logic(self):
         """
-        Verify that splits are calculated backwards from end_date correctly.
+        Verify that splits are calculated backwards from end_time correctly.
         """
-        end_date = pd.Timestamp("2024-06-01")
+        end_time = pd.Timestamp("2024-06-01")
         splitter = SlidingWindowSplitter(
             n_splits=1,
             train_day=30,
@@ -116,11 +116,11 @@ class TestSlidingWindowSplitter:
             purging_day=2
         )
         
-        splits = list(splitter.split(pd.Timestamp("2024-01-01"), end_date))
+        splits = list(splitter.split(pd.Timestamp("2024-01-01"), end_time))
         (train_start, train_end), (test_start, test_end), (oos_start, oos_end) = splits[0]
         
-        assert oos_end == end_date
-        assert oos_start == end_date - timedelta(days=5)
+        assert oos_end == end_time
+        assert oos_start == end_time - timedelta(days=5)
         assert test_end == oos_start
         assert test_start == test_end - timedelta(days=10)
         assert train_end == test_start - timedelta(days=2)
@@ -140,10 +140,10 @@ class TestSlidingWindowSplitter:
             purging_day=0
         )
         
-        start_date = pd.Timestamp("2024-01-01")
-        end_date = pd.Timestamp("2024-06-01")
+        start_time = pd.Timestamp("2024-01-01")
+        end_time = pd.Timestamp("2024-06-01")
         
-        splits = list(splitter.split(start_date, end_date))
+        splits = list(splitter.split(start_time, end_time))
         assert len(splits) == 2
         
         s1 = splits[1] # Later split
