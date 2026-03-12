@@ -105,6 +105,68 @@ def test_filtrate_tripple_label_barrier_high_threshold(simple_dataframe):
     # Higher threshold should result in fewer events
     assert len(result) >= 0
 
+def test_filtrate_tripple_label_barrier_no_delete(volatile_dataframe):
+    """Test filtrate_tripple_label_barrier with should_delete_filtered_row=False."""
+    df = volatile_dataframe.copy()
+    
+    # Use index as datetime (time_col='index' default)
+    result = filtrate_tripple_label_barrier(
+        df,
+        cusum_threshold=0.01,
+        vertical_barrier=5,
+        should_delete_filtered_row=False
+    )
+    
+    # Length should match original dataframe
+    assert len(result) == len(df)
+    assert 't1' in result.columns
+    
+    # t1 should have some non-NA values (events) and some NA values
+    assert result['t1'].isna().any()
+    assert result['t1'].notna().any()
+    
+    # Points where t1 is not NA should match points from filtered version
+    filtered_result = filtrate_tripple_label_barrier(
+        df,
+        cusum_threshold=0.01,
+        vertical_barrier=5,
+        should_delete_filtered_row=True
+    )
+    
+    pd.testing.assert_index_equal(result[result['t1'].notna()].index, filtered_result.index)
+    pd.testing.assert_series_equal(
+        result.loc[result['t1'].notna(), 't1'], 
+        filtered_result['t1'],
+        check_names=False
+    )
+
+def test_filtrate_dynamic_tripple_label_barrier_no_delete(volatile_dataframe):
+    """Test filtrate_dynamic_tripple_label_barrier with should_delete_filtered_row=False."""
+    df = volatile_dataframe.copy()
+    df['dynamic_threshold'] = 0.01
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5,
+        should_delete_filtered_row=False
+    )
+    
+    assert len(result) == len(df)
+    assert 't1' in result.columns
+    assert result['t1'].isna().any()
+    assert result['t1'].notna().any()
+    
+    filtered_result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5,
+        should_delete_filtered_row=True
+    )
+    
+    pd.testing.assert_index_equal(result[result['t1'].notna()].index, filtered_result.index)
+
+
 
 def test_filtrate_tripple_label_barrier_low_threshold(volatile_dataframe):
     """Test with low threshold - should produce more events."""
@@ -138,6 +200,74 @@ def test_filtrate_tripple_label_barrier_vertical_barrier_boundary(simple_datafra
         # t1 should never exceed the last datetime
         assert (result['t1'] <= df['datetime'].max()).all()
 
+
+def test_filtrate_dynamic_tripple_label_barrier_basic(simple_dataframe):
+    """Test basic functionality of filtrate_dynamic_tripple_label_barrier."""
+    df = simple_dataframe.copy()
+    # Add a dynamic threshold column
+    df['dynamic_threshold'] = 0.01  # Constant threshold for simplicity
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5
+    )
+    
+    # Check structure
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    assert 'close' in result.columns
+    assert 'volume' in result.columns
+    
+    # Check that index represents event times
+    assert len(result) >= 0
+
+
+def test_filtrate_tripple_label_barrier_should_not_delete(simple_dataframe):
+    """Test filtrate_tripple_label_barrier with should_delete_filtered_row=False."""
+    df = simple_dataframe.reset_index()
+    df.rename(columns={'index': 'datetime'}, inplace=True)
+    
+    result = filtrate_tripple_label_barrier(
+        df,
+        cusum_threshold=0.01,
+        vertical_barrier=5,
+        time_col='datetime',
+        should_delete_filtered_row=False
+    )
+    
+    # Check that length is the same as input
+    assert len(result) == len(df)
+    assert 't1' in result.columns
+    # Check that some t1 are not NA (triggered events) and some are NA
+    assert result['t1'].isna().any()
+    assert result['t1'].notna().any()
+    # Check that all columns from original df are present
+    for col in df.columns:
+        assert col in result.columns
+
+
+def test_filtrate_dynamic_tripple_label_barrier_should_not_delete(simple_dataframe):
+    """Test filtrate_dynamic_tripple_label_barrier with should_delete_filtered_row=False."""
+    df = simple_dataframe.copy()
+    df['dynamic_threshold'] = 0.01
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='dynamic_threshold',
+        vertical_barrier=5,
+        should_delete_filtered_row=False
+    )
+    
+    # Check that length is the same as input
+    assert len(result) == len(df)
+    assert 't1' in result.columns
+    # Check that some t1 are not NA (triggered events) and some are NA
+    assert result['t1'].isna().any()
+    assert result['t1'].notna().any()
+    # Check that all columns from original df are present
+    for col in df.columns:
+        assert col in result.columns
 
 def test_filtrate_dynamic_tripple_label_barrier_basic(simple_dataframe):
     """Test basic functionality of filtrate_dynamic_tripple_label_barrier."""

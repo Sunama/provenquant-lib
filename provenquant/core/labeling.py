@@ -36,6 +36,7 @@ def filtrate_dynamic_tripple_label_barrier(
     cusum_threshold_col: str,
     vertical_barrier: int,
     time_col: str = 'index',
+    should_delete_filtered_row: bool = True,
 ) -> pd.DataFrame:
     """Filtrate triple barrier labels from raw DataFrame using dynamic CUSUM thresholds.
        Use this function before applying triple barrier labeling or in
@@ -46,6 +47,9 @@ def filtrate_dynamic_tripple_label_barrier(
         cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
         vertical_barrier (int): Ticks for vertical barrier.
         time_col (str): Name of the datetime column. Defaults to 'index'.
+        should_delete_filtered_row (bool): Whether to delete rows that are not
+            tripped by CUSUM filter. Defaults to True.
+
     Returns:
         pd.DataFrame: DataFrame with t1.
     """
@@ -81,17 +85,30 @@ def filtrate_dynamic_tripple_label_barrier(
         t1_values.append(t1_value)
     
     t1 = pd.Series(t1_values, index=t_events, dtype=close_prices.index.dtype)
-    df = pd.DataFrame(index=t_events)
-    df['t1'] = t1
     
-    # Add another columns in dataframe to df
-    if time_col == 'index':
-        for col in dataframe.columns:
-            df[col] = dataframe.loc[t_events][col]
+    if should_delete_filtered_row:
+        df = pd.DataFrame(index=t_events)
+        df['t1'] = t1
+        
+        # Add another columns in dataframe to df
+        if time_col == 'index':
+            for col in dataframe.columns:
+                df[col] = dataframe.loc[t_events][col]
+        else:
+            temp_df = dataframe.set_index(time_col)
+            for col in dataframe.columns:
+                if col != time_col:
+                    df[col] = temp_df.loc[t_events][col]
     else:
-        for col in dataframe.columns:
-            if col != time_col:
-                df[col] = dataframe.set_index(time_col).loc[t_events][col]
+        df = dataframe.copy()
+        if time_col != 'index':
+            df = df.set_index(time_col)
+        
+        df['t1'] = pd.Series(pd.NA, index=df.index, dtype=close_prices.index.dtype)
+        df.loc[t_events, 't1'] = t1
+        
+        if time_col != 'index':
+            df = df.reset_index().rename(columns={'index': time_col})
     
     return df
 
@@ -100,6 +117,7 @@ def filtrate_tripple_label_barrier(
     cusum_threshold: float,
     vertical_barrier: int,
     time_col: str = 'index',
+    should_delete_filtered_row: bool = True,
 ) -> pd.DataFrame:
     """Filtrate triple barrier labels from raw DataFrame.
        Use this function before applying triple barrier labeling or in
@@ -110,6 +128,8 @@ def filtrate_tripple_label_barrier(
         cusum_threshold (float): Threshold for CUSUM filter in percentage.
         vertical_barrier (int): Ticks for vertical barrier.
         time_col (str): Name of the datetime column. Defaults to 'index'.
+        should_delete_filtered_row (bool): Whether to delete rows that are not
+            tripped by CUSUM filter. Defaults to True.
 
     Returns:
         pd.DataFrame: DataFrame with t1.
@@ -146,20 +166,33 @@ def filtrate_tripple_label_barrier(
         t1_values.append(t1_value)
     
     t1 = pd.Series(t1_values, index=t_events, dtype=close_prices.index.dtype)
-    df = pd.DataFrame(index=t_events)
-    df['t1'] = t1
     
-    # Add another columns in dataframe to df
-    if time_col == 'index':
-        # datetime is already the index
-        for col in dataframe.columns:
-            df[col] = dataframe.loc[t_events][col]
+    if should_delete_filtered_row:
+        df = pd.DataFrame(index=t_events)
+        df['t1'] = t1
+        
+        # Add another columns in dataframe to df
+        if time_col == 'index':
+            # datetime is already the index
+            for col in dataframe.columns:
+                df[col] = dataframe.loc[t_events][col]
+        else:
+            # datetime is a column, need to set it as index first
+            temp_df = dataframe.set_index(time_col)
+            for col in dataframe.columns:
+                if col != time_col:
+                    df[col] = temp_df.loc[t_events][col]
     else:
-        # datetime is a column, need to set it as index first
-        for col in dataframe.columns:
-            if col != time_col:
-                df[col] = dataframe.set_index(time_col).loc[t_events][col]
-    
+        df = dataframe.copy()
+        if time_col != 'index':
+            df = df.set_index(time_col)
+            
+        df['t1'] = pd.Series(pd.NA, index=df.index, dtype=close_prices.index.dtype)
+        df.loc[t_events, 't1'] = t1
+        
+        if time_col != 'index':
+            df = df.reset_index().rename(columns={'index': time_col})
+            
     return df
 
 def fit_ou_ols(series: pd.Series, dt: float = 1.0):
