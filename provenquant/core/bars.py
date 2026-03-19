@@ -1,18 +1,66 @@
 import pandas as pd
-from multiprocessing import Pool
-from functools import partial
 
-def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
-    """Helper function to process a chunk of data for dollar bars (multiprocess compatible).
-    
+def convert_standard_bars_to_larger_timeframe(
+    dataframe: pd.DataFrame,
+    timeframe: str,
+    time_col: str='index',
+) -> pd.DataFrame:
+    """Convert standard bars to a larger timeframe (e.g., 1-minute bars to 5-minute bars).
+
     Args:
-        chunk_tuple (tuple): (chunk_data, chunk_id)
-        threshold (float): Dollar threshold for each bar.
+        dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
+        timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
         
     Returns:
-        tuple: (bars_list, final_state_dict)
+        pd.DataFrame: DataFrame containing resampled bars.
     """
-    chunk, chunk_id = chunk_tuple
+    df = dataframe.copy()
+    
+    if time_col != 'index':
+        # Ensure time_col is datetime type
+        df[time_col] = pd.to_datetime(df[time_col])
+        df.set_index(time_col, inplace=True)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        # If it's the index, ensure it's datetime type
+        df.index = pd.to_datetime(df.index)
+    
+    resampled = df.resample(timeframe).agg({
+        'open': 'first',
+        'high': 'max',
+        'low': 'min',
+        'close': 'last',
+        'volume': 'sum'
+    }).dropna()
+    
+    if time_col != 'index':
+        # Restore the datetime col as index if that was the original structure
+        resampled.index.name = time_col
+    
+    return resampled
+
+def get_dollar_bars(
+    dataframe: pd.DataFrame,
+    threshold: float,
+    time_col: str='index',
+) -> pd.DataFrame:
+    """Generate dollar bars from tick data.
+
+    Args:
+        dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
+        threshold (float): Dollar threshold for each bar.
+        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing dollar bars.
+    """
+    df = dataframe.copy()
+    if time_col != 'index':
+        df.set_index(time_col, inplace=True)
+    
+    # Pre-calculate
+    df['dollar_value'] = df['close'] * df['volume']
+    df['price_change'] = df['close'].diff()
     
     bars = []
     cum_dollar_value = 0.0
@@ -25,7 +73,7 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
     bar_volume = 0
     bar_start_time = None
     
-    for idx, row in chunk.iterrows():
+    for idx, row in df.iterrows():
         if bar_open is None:
             bar_open = row['open']
             bar_high = row['high']
@@ -72,136 +120,29 @@ def _process_dollar_bars_chunk(chunk_tuple, threshold: float):
             bar_volume = 0
             bar_start_time = None
     
-    # Return final state for handling incomplete bars at chunk boundary
-    final_state = {
-        'cum_dollar_value': cum_dollar_value,
-        'cum_ticks': cum_ticks,
-        'cum_buy_volume': cum_buy_volume,
-        'cum_sell_volume': cum_sell_volume,
-        'bar_open': bar_open,
-        'bar_high': bar_high,
-        'bar_low': bar_low,
-        'bar_volume': bar_volume,
-        'bar_start_time': bar_start_time
-    }
-    
-    return bars, final_state
-
-def convert_standard_bars_to_larger_timeframe(
-    dataframe: pd.DataFrame,
-    timeframe: str,
-    time_col: str='index',
-) -> pd.DataFrame:
-    """Convert standard bars to a larger timeframe (e.g., 1-minute bars to 5-minute bars).
-
-    Args:
-        dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
-        timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
-        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
-        
-    Returns:
-        pd.DataFrame: DataFrame containing resampled bars.
-    """
-    df = dataframe.copy()
-    
-    if time_col != 'index':
-        # Ensure time_col is datetime type
-        df[time_col] = pd.to_datetime(df[time_col])
-        df.set_index(time_col, inplace=True)
-    elif not isinstance(df.index, pd.DatetimeIndex):
-        # If it's the index, ensure it's datetime type
-        df.index = pd.to_datetime(df.index)
-    
-    resampled = df.resample(timeframe).agg({
-        'open': 'first',
-        'high': 'max',
-        'low': 'min',
-        'close': 'last',
-        'volume': 'sum'
-    }).dropna()
-    
-    if time_col != 'index':
-        # Restore the datetime col as index if that was the original structure
-        resampled.index.name = time_col
-    
-    return resampled
-
-def get_dollar_bars(
-    dataframe: pd.DataFrame,
-    threshold: float,
-    time_col: str='index',
-    num_threads: int = 1,
-) -> pd.DataFrame:
-    """Generate dollar bars from tick data.
-
-    Args:
-        dataframe (pd.DataFrame): Input tick data with 'open', 'high', 'low', 'close', 'volume' columns.
-        threshold (float): Dollar threshold for each bar.
-        time_col (str, optional): Name of the datetime column. Defaults to 'index'.
-        num_threads (int, optional): Number of processes. Defaults to 1 (sequential). Set > 1 for multiprocessing.
-        
-    Returns:
-        pd.DataFrame: DataFrame containing dollar bars.
-    """
-    df = dataframe.copy()
-    if time_col != 'index':
-        df.set_index(time_col, inplace=True)
-    
-    # Pre-calculate to ensure consistency across chunks when multiprocessing
-    df['dollar_value'] = df['close'] * df['volume']
-    df['price_change'] = df['close'].diff()
-    
-    # Split data into chunks
-    num_chunks = max(1, num_threads)
-    chunk_size = max(1, len(df) // num_chunks)
-    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
-    
-    # Process chunks (sequentially if num_threads=1, in parallel otherwise)
-    with Pool(processes=num_threads if num_threads > 1 else 1) as pool:
-        process_func = partial(_process_dollar_bars_chunk, threshold=threshold)
-        results = pool.map(process_func, [(chunk, i) for i, chunk in enumerate(chunks)])
-    
-    # Combine results from all chunks
-    all_bars = []
-    carry_over_state = None
-    
-    for chunk_id, (chunk_bars, final_state) in enumerate(results):
-        # Handle incomplete bar from previous chunk
-        if carry_over_state and carry_over_state['bar_open'] is not None and chunk_bars:
-            first_bar = chunk_bars[0]
-            first_bar['open'] = carry_over_state['bar_open']
-            first_bar['high'] = max(carry_over_state['bar_high'], first_bar['high'])
-            first_bar['low'] = min(carry_over_state['bar_low'], first_bar['low'])
-            first_bar['volume'] += carry_over_state['bar_volume']
-            first_bar['cum_ticks'] += carry_over_state['cum_ticks']
-            first_bar['cum_dollar'] += carry_over_state['cum_dollar_value']
-            first_bar['buy_volume'] += carry_over_state['cum_buy_volume']
-            first_bar['sell_volume'] += carry_over_state['cum_sell_volume']
-            first_bar['start_time'] = carry_over_state['bar_start_time']
-        
-        all_bars.extend(chunk_bars)
-        carry_over_state = final_state
-    
-    # Handle incomplete bar from last chunk
-    if carry_over_state and carry_over_state['bar_open'] is not None:
-        all_bars.append({
-            'start_time': carry_over_state['bar_start_time'],
-            'open': carry_over_state['bar_open'],
-            'high': carry_over_state['bar_high'],
-            'low': carry_over_state['bar_low'],
-            'close': df.iloc[-1]['close'] if len(df) > 0 else carry_over_state['bar_open'],
-            'volume': carry_over_state['bar_volume'],
-            'cum_ticks': carry_over_state['cum_ticks'],
-            'cum_dollar': carry_over_state['cum_dollar_value'],
-            'buy_volume': carry_over_state['cum_buy_volume'],
-            'sell_volume': carry_over_state['cum_sell_volume'],
-            'end_time': df.index[-1] if len(df) > 0 else carry_over_state['bar_start_time']
-        })
+    # Handle incomplete bar from last row
+    if bar_open is not None:
+        all_bars = bars + [{
+            'start_time': bar_start_time,
+            'open': bar_open,
+            'high': bar_high,
+            'low': bar_low,
+            'close': df.iloc[-1]['close'] if len(df) > 0 else bar_open,
+            'volume': bar_volume,
+            'cum_ticks': cum_ticks,
+            'cum_dollar': cum_dollar_value,
+            'buy_volume': cum_buy_volume,
+            'sell_volume': cum_sell_volume,
+            'end_time': df.index[-1] if len(df) > 0 else bar_start_time
+        }]
+    else:
+        all_bars = bars
     
     bars_df = pd.DataFrame(all_bars)
     bars_df.set_index('end_time', inplace=True)
     
     return bars_df
+
 
 def get_dollar_imbalance_bars(
   dataframe: pd.DataFrame,

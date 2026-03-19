@@ -82,12 +82,3 @@ def test_get_volume_imbalance_bars(sample_tick_data):
     assert len(imbalance_bars) > 0
     assert 'buy_volume' in imbalance_bars.columns
     assert 'sell_volume' in imbalance_bars.columns
-
-def test_get_dollar_bars_multiprocessing(sample_tick_data):
-    threshold = 5000
-    dollar_bars_seq = get_dollar_bars(sample_tick_data, threshold=threshold, num_threads=1)
-    dollar_bars_parallel = get_dollar_bars(sample_tick_data, threshold=threshold, num_threads=2)
-    
-    # Results should be identical or very similar (depending on how chunks are handled)
-    # The current implementation handles carry_over_state, so they should match
-    pd.testing.assert_frame_equal(dollar_bars_seq, dollar_bars_parallel)
