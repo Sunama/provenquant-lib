@@ -98,6 +98,53 @@ def test_larger_timeframe_merge_basic():
     assert result['large_value'].iloc[4] == 200.0
 
 
+def test_larger_timeframe_merge_index_to_index_named():
+    """Test larger_timeframe_merge_to_smaller_timeframe_dataframe with named index to named index merging."""
+    large_tf_df = pd.DataFrame({
+        'large_value': [100, 200, 300]
+    }, index=pd.date_range('2024-01-01 00:00', periods=3, freq='1h'))
+    large_tf_df.index.name = 'time'
+    
+    small_tf_df = pd.DataFrame({
+        'small_value': [1, 2, 3, 4, 5]
+    }, index=pd.date_range('2024-01-01 00:00', periods=5, freq='30min'))
+    small_tf_df.index.name = 'time'
+    
+    result = larger_timeframe_merge_to_smaller_timeframe_dataframe(
+        large_tf_df, small_tf_df, 'index', 'index', ['large_value']
+    )
+    
+    assert 'large_value' in result.columns
+    assert result.index.name == 'time'
+    assert np.isnan(result['large_value'].iloc[0])
+    assert result['large_value'].iloc[2] == 100.0
+
+
+def test_larger_timeframe_merge_index_to_index_unnamed():
+    """Test larger_timeframe_merge_to_smaller_timeframe_dataframe with unnamed index to unnamed index merging."""
+    large_tf_df = pd.DataFrame({
+        'large_value': [100, 200, 300]
+    }, index=pd.date_range('2024-01-01 00:00', periods=3, freq='1h'))
+    large_tf_df.index.name = None
+    
+    small_tf_df = pd.DataFrame({
+        'small_value': [1, 2, 3, 4, 5]
+    }, index=pd.date_range('2024-01-01 00:00', periods=5, freq='30min'))
+    small_tf_df.index.name = None
+    
+    # This should reproduce the KeyError: Requested level (_small_dt) does not match index name (None)
+    result = larger_timeframe_merge_to_smaller_timeframe_dataframe(
+        large_tf_df, small_tf_df, 'index', 'index', ['large_value']
+    )
+    
+    assert 'large_value' in result.columns
+    assert np.isnan(result['large_value'].iloc[0])
+    assert np.isnan(result['large_value'].iloc[1])
+    assert result['large_value'].iloc[2] == 100.0
+    assert result['large_value'].iloc[3] == 100.0
+    assert result['large_value'].iloc[4] == 200.0
+
+
 def test_match_merge_dataframe_empty_from_df():
     """Test match_merge_dataframe with empty from_df."""
     from_df = pd.DataFrame({'datetime': [], 'value': []})

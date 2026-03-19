@@ -145,10 +145,12 @@ def larger_timeframe_merge_to_smaller_timeframe_dataframe(
         right_on = '_available_at'
 
     if left_on is None:
-        # Using index for small_tf
-        small_sorted_reset = small_sorted
+        # If the index had no name, reset_index() creates a column named 'index'
+        # If it had a name, it uses that name.
+        small_dt_col = 'index' if 'index' in small_sorted.columns else small_df.index.name
+        
         merged = pd.merge_asof(
-            small_sorted_reset.rename(columns={'index': '_small_dt'}),
+            small_sorted.rename(columns={small_dt_col: '_small_dt'}),
             large_ready[['_available_at'] + large_tf_cols],
             left_on='_small_dt',
             right_on=right_on,
