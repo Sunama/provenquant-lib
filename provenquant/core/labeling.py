@@ -241,13 +241,16 @@ def get_dynamic_tripple_label_barrier(
         sl_multiplier (float): Multiplier for stop loss threshold. Defaults to 1.0
         
     Returns:
-        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns and
-        min_returns.
+        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns,
+        min_returns and status.
     """
     labels = []
     returns = []
     max_returns = []
     min_returns = []
+    statuses = []
+    
+    latest_available_time = close_series.index[-1]
     
     for event_time, row in dataframe.iterrows():
         t1 = row['t1']
@@ -256,6 +259,7 @@ def get_dynamic_tripple_label_barrier(
             returns.append(0)
             max_returns.append(0)
             min_returns.append(0)
+            statuses.append('no_t1')
             continue
         
         threshold = row[cusum_threshold_col]
@@ -278,24 +282,34 @@ def get_dynamic_tripple_label_barrier(
             if ret > tp:
                 labels.append(1)
                 returns.append(ret)
+                statuses.append('hit_tp')
                 exited = True
                 break
             elif ret < sl:
                 labels.append(-1)
                 returns.append(ret)
+                statuses.append('hit_sl')
                 exited = True
                 break
         
         if not exited:
-            end_price = close_series.loc[end_time]
+            end_price = close_series.loc[window_prices.index[-1]]
             ret = (end_price - start_price) / start_price
-            labels.append(0)
-            returns.append(ret)
+            
+            if latest_available_time >= t1:
+                labels.append(0)
+                returns.append(ret)
+                statuses.append('expired')
+            else:
+                labels.append(np.nan)
+                returns.append(ret)
+                statuses.append('active')
     
     dataframe['label'] = labels
     dataframe['return'] = returns
     dataframe['max_return'] = max_returns
     dataframe['min_return'] = min_returns
+    dataframe['status'] = statuses
     dataframe['mapped_label'] = dataframe['label'].map({1: 2, 0: 1, -1: 0})
     
     return dataframe
@@ -315,13 +329,16 @@ def get_tripple_label_barrier(
         sl (float): Stop loss percentage. Defaults to 1%.
         
     Returns:
-        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns and
-        min_returns.
+        pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns,
+        min_returns and status.
     """
     labels = []
     returns = []
     max_returns = []
     min_returns = []
+    statuses = []
+    
+    latest_available_time = close_series.index[-1]
     
     for event_time, row in dataframe.iterrows():
         t1 = row['t1']
@@ -330,6 +347,7 @@ def get_tripple_label_barrier(
             returns.append(0)
             max_returns.append(0)
             min_returns.append(0)
+            statuses.append('no_t1')
             continue
         
         start_time = event_time
@@ -348,24 +366,34 @@ def get_tripple_label_barrier(
             if ret > tp:
                 labels.append(1)
                 returns.append(ret)
+                statuses.append('hit_tp')
                 exited = True
                 break
             elif ret < -sl:
                 labels.append(-1)
                 returns.append(ret)
+                statuses.append('hit_sl')
                 exited = True
                 break
         
         if not exited:
-            end_price = close_series.loc[end_time]
+            end_price = close_series.loc[window_prices.index[-1]]
             ret = (end_price - start_price) / start_price
-            labels.append(0)
-            returns.append(ret)
+            
+            if latest_available_time >= t1:
+                labels.append(0)
+                returns.append(ret)
+                statuses.append('expired')
+            else:
+                labels.append(np.nan)
+                returns.append(ret)
+                statuses.append('active')
     
     dataframe['label'] = labels
     dataframe['return'] = returns
     dataframe['max_return'] = max_returns
     dataframe['min_return'] = min_returns
+    dataframe['status'] = statuses
     dataframe['mapped_label'] = dataframe['label'].map({1: 2, 0: 1, -1: 0})
     
     return dataframe
