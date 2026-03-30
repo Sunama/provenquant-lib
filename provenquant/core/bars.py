@@ -25,6 +25,23 @@ def convert_standard_bars_to_larger_timeframe(
         # If it's the index, ensure it's datetime type
         df.index = pd.to_datetime(df.index)
     
+    # Map common timeframe suffixes to pandas-compatible ones
+    timeframe_mapping = {
+        'm': 'T',    # minutes
+        'h': 'H',    # hours
+        'd': 'D',    # days
+        'w': 'W',    # weeks
+        'M': 'ME',   # months (Month End)
+    }
+    
+    # Check if timeframe needs mapping (e.g., '5m' -> '5T')
+    import re
+    match = re.match(r'(\d+)([a-zA-Z]+)', timeframe)
+    if match:
+        value, unit = match.groups()
+        if unit in timeframe_mapping:
+            timeframe = f"{value}{timeframe_mapping[unit]}"
+
     resampled = df.resample(timeframe).agg({
         'open': 'first',
         'high': 'max',
