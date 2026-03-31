@@ -230,6 +230,7 @@ def get_dynamic_tripple_label_barrier(
     cusum_threshold_col: str,
     tp_multiplier: float = 2.0,
     sl_multiplier: float = 1.0,
+    side: str = 'long'
 ) -> pd.DataFrame:
     """Get triple barrier labels from DataFrame with dynamic CUSUM thresholds.
 
@@ -239,6 +240,7 @@ def get_dynamic_tripple_label_barrier(
         cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
         tp_multiplier (float): Multiplier for take profit threshold. Defaults to 2.0.
         sl_multiplier (float): Multiplier for stop loss threshold. Defaults to 1.0
+        side (str): 'long' or 'short'. Defaults to 'long'.
         
     Returns:
         pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns,
@@ -263,9 +265,14 @@ def get_dynamic_tripple_label_barrier(
             continue
         
         threshold = row[cusum_threshold_col]
-        tp = tp_multiplier * threshold
-        sl = -sl_multiplier * threshold
         
+        if side == 'long':
+            tp = tp_multiplier * threshold
+            sl = -sl_multiplier * threshold
+        else: # side == 'short'
+            tp = -tp_multiplier * threshold
+            sl = sl_multiplier * threshold
+            
         start_time = event_time
         end_time = t1
         start_price = close_series.loc[start_time]
@@ -273,24 +280,44 @@ def get_dynamic_tripple_label_barrier(
         
         window_prices = close_series.loc[start_time:end_time]
         window_returns = (window_prices - start_price) / start_price
-        max_returns.append(window_returns.max())
-        min_returns.append(window_returns.min())
+        
+        if side == 'long':
+            max_returns.append(window_returns.max())
+            min_returns.append(window_returns.min())
+        else:
+            # For short, max return (profit) is when price goes down
+            max_returns.append(-window_returns.min())
+            min_returns.append(-window_returns.max())
 
         for t, price in window_prices.items():
             ret = (price - start_price) / start_price
             
-            if ret > tp:
-                labels.append(1)
-                returns.append(ret)
-                statuses.append('hit_tp')
-                exited = True
-                break
-            elif ret < sl:
-                labels.append(-1)
-                returns.append(ret)
-                statuses.append('hit_sl')
-                exited = True
-                break
+            if side == 'long':
+                if ret > tp:
+                    labels.append(1)
+                    returns.append(ret)
+                    statuses.append('hit_tp')
+                    exited = True
+                    break
+                elif ret < sl:
+                    labels.append(-1)
+                    returns.append(ret)
+                    statuses.append('hit_sl')
+                    exited = True
+                    break
+            else: # side == 'short'
+                if ret < tp: # price goes down below tp (which is negative)
+                    labels.append(1)
+                    returns.append(-ret)
+                    statuses.append('hit_tp')
+                    exited = True
+                    break
+                elif ret > sl: # price goes up above sl (which is positive)
+                    labels.append(-1)
+                    returns.append(-ret)
+                    statuses.append('hit_sl')
+                    exited = True
+                    break
         
         if not exited:
             end_price = close_series.loc[window_prices.index[-1]]
@@ -298,11 +325,11 @@ def get_dynamic_tripple_label_barrier(
             
             if latest_available_time >= t1:
                 labels.append(0)
-                returns.append(ret)
+                returns.append(ret if side == 'long' else -ret)
                 statuses.append('expired')
             else:
                 labels.append(np.nan)
-                returns.append(ret)
+                returns.append(ret if side == 'long' else -ret)
                 statuses.append('active')
     
     dataframe['label'] = labels
@@ -319,6 +346,7 @@ def get_tripple_label_barrier(
     close_series: pd.Series,
     tp: float = 0.02,
     sl: float = 0.01,
+    side: str = 'long'
 ) -> pd.DataFrame:
     """Get triple barrier labels from DataFrame with t1.
 
@@ -327,6 +355,7 @@ def get_tripple_label_barrier(
         close_series (pd.Series): Series of close prices that have datetime index.
         tp (float): Profit taking percentage. Defaults to 2%.
         sl (float): Stop loss percentage. Defaults to 1%.
+        side (str): 'long' or 'short'. Defaults to 'long'.
         
     Returns:
         pd.DataFrame: DataFrame with labels, mapped_labels, returns, max_returns,
@@ -339,6 +368,10 @@ def get_tripple_label_barrier(
     statuses = []
     
     latest_available_time = close_series.index[-1]
+    
+    # Adjust thresholds for short side
+    actual_tp = tp if side == 'long' else -tp
+    actual_sl = -sl if side == 'long' else sl
     
     for event_time, row in dataframe.iterrows():
         t1 = row['t1']
@@ -357,24 +390,43 @@ def get_tripple_label_barrier(
         
         window_prices = close_series.loc[start_time:end_time]
         window_returns = (window_prices - start_price) / start_price
-        max_returns.append(window_returns.max())
-        min_returns.append(window_returns.min())
+        
+        if side == 'long':
+            max_returns.append(window_returns.max())
+            min_returns.append(window_returns.min())
+        else:
+            max_returns.append(-window_returns.min())
+            min_returns.append(-window_returns.max())
 
         for t, price in window_prices.items():
             ret = (price - start_price) / start_price
             
-            if ret > tp:
-                labels.append(1)
-                returns.append(ret)
-                statuses.append('hit_tp')
-                exited = True
-                break
-            elif ret < -sl:
-                labels.append(-1)
-                returns.append(ret)
-                statuses.append('hit_sl')
-                exited = True
-                break
+            if side == 'long':
+                if ret > actual_tp:
+                    labels.append(1)
+                    returns.append(ret)
+                    statuses.append('hit_tp')
+                    exited = True
+                    break
+                elif ret < actual_sl:
+                    labels.append(-1)
+                    returns.append(ret)
+                    statuses.append('hit_sl')
+                    exited = True
+                    break
+            else: # side == 'short'
+                if ret < actual_tp: # Price goes down (profit)
+                    labels.append(1)
+                    returns.append(-ret)
+                    statuses.append('hit_tp')
+                    exited = True
+                    break
+                elif ret > actual_sl: # Price goes up (loss)
+                    labels.append(-1)
+                    returns.append(-ret)
+                    statuses.append('hit_sl')
+                    exited = True
+                    break
         
         if not exited:
             end_price = close_series.loc[window_prices.index[-1]]
@@ -382,11 +434,11 @@ def get_tripple_label_barrier(
             
             if latest_available_time >= t1:
                 labels.append(0)
-                returns.append(ret)
+                returns.append(ret if side == 'long' else -ret)
                 statuses.append('expired')
             else:
                 labels.append(np.nan)
-                returns.append(ret)
+                returns.append(ret if side == 'long' else -ret)
                 statuses.append('active')
     
     dataframe['label'] = labels
