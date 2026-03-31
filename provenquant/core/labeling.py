@@ -80,28 +80,35 @@ def filtrate_dynamic_tripple_label_barrier(
     
     # Vertical Barrier
     # t1 is now calculated by adding minutes to the event time
-    t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
+    full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
+    
+    # Clip t1 to the last available time in the dataframe
+    last_time = full_index.values[-1]
+    full_t1 = pd.Series(full_t1).clip(upper=last_time)
     
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
-        df['t1'] = t1.loc[t_events] if time_col == 'index' else t1.iloc[dataframe.index[dataframe[time_col].isin(t_events)]].values
+        if time_col == 'index':
+            df['t1'] = full_t1[full_index.isin(t_events)].values
+        else:
+            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].values
         df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
         if time_col == 'index':
             for col in dataframe.columns:
-                df[col] = dataframe.loc[t_events][col]
+                df[col] = dataframe.loc[t_events, col]
         else:
             temp_df = dataframe.set_index(time_col)
             for col in dataframe.columns:
                 if col != time_col:
-                    df[col] = temp_df.loc[t_events][col]
+                    df[col] = temp_df.loc[t_events, col]
     else:
         df = dataframe.copy()
         if time_col != 'index':
             df = df.set_index(time_col)
         
-        df['t1'] = t1.values if time_col != 'index' else t1
+        df['t1'] = full_t1.values
         df['is_cusum_triggered'] = False
         df.loc[t_events, 'is_cusum_triggered'] = True
         
@@ -158,30 +165,37 @@ def filtrate_tripple_label_barrier(
     
     # Vertical Barrier
     # t1 is now calculated by adding minutes to the event time
-    t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
+    full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
+    
+    # Clip t1 to the last available time in the dataframe
+    last_time = full_index.values[-1]
+    full_t1 = pd.Series(full_t1).clip(upper=last_time)
     
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
-        df['t1'] = t1.loc[t_events] if time_col == 'index' else t1.iloc[dataframe.index[dataframe[time_col].isin(t_events)]].values
+        if time_col == 'index':
+            df['t1'] = full_t1[full_index.isin(t_events)].values
+        else:
+            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].values
         df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
         if time_col == 'index':
             # datetime is already the index
             for col in dataframe.columns:
-                df[col] = dataframe.loc[t_events][col]
+                df[col] = dataframe.loc[t_events, col]
         else:
             # datetime is a column, need to set it as index first
             temp_df = dataframe.set_index(time_col)
             for col in dataframe.columns:
                 if col != time_col:
-                    df[col] = temp_df.loc[t_events][col]
+                    df[col] = temp_df.loc[t_events, col]
     else:
         df = dataframe.copy()
         if time_col != 'index':
             df = df.set_index(time_col)
             
-        df['t1'] = t1.values if time_col != 'index' else t1
+        df['t1'] = full_t1.values
         df['is_cusum_triggered'] = False
         df.loc[t_events, 'is_cusum_triggered'] = True
         

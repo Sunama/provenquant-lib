@@ -120,12 +120,14 @@ def test_filtrate_tripple_label_barrier_no_delete(volatile_dataframe):
     # Length should match original dataframe
     assert len(result) == len(df)
     assert 't1' in result.columns
+    assert 'is_cusum_triggered' in result.columns
     
-    # t1 should have some non-NA values (events) and some NA values
-    assert result['t1'].isna().any()
-    assert result['t1'].notna().any()
+    # t1 should be present for all rows now, not have NA
+    assert result['t1'].notna().all()
+    assert result['is_cusum_triggered'].isna().any() == False
+    assert result['is_cusum_triggered'].any()  # Should have some True
     
-    # Points where t1 is not NA should match points from filtered version
+    # Points where CUSUM triggered should match points from filtered version
     filtered_result = filtrate_tripple_label_barrier(
         df,
         cusum_threshold=0.01,
@@ -133,9 +135,9 @@ def test_filtrate_tripple_label_barrier_no_delete(volatile_dataframe):
         should_delete_filtered_row=True
     )
     
-    pd.testing.assert_index_equal(result[result['t1'].notna()].index, filtered_result.index)
+    pd.testing.assert_index_equal(result[result['is_cusum_triggered']].index, filtered_result.index)
     pd.testing.assert_series_equal(
-        result.loc[result['t1'].notna(), 't1'], 
+        result.loc[result['is_cusum_triggered'], 't1'], 
         filtered_result['t1'],
         check_names=False
     )
@@ -154,8 +156,9 @@ def test_filtrate_dynamic_tripple_label_barrier_no_delete(volatile_dataframe):
     
     assert len(result) == len(df)
     assert 't1' in result.columns
-    assert result['t1'].isna().any()
-    assert result['t1'].notna().any()
+    assert 'is_cusum_triggered' in result.columns
+    assert result['t1'].notna().all()
+    assert result['is_cusum_triggered'].any()
     
     filtered_result = filtrate_dynamic_tripple_label_barrier(
         df,
@@ -164,7 +167,7 @@ def test_filtrate_dynamic_tripple_label_barrier_no_delete(volatile_dataframe):
         should_delete_filtered_row=True
     )
     
-    pd.testing.assert_index_equal(result[result['t1'].notna()].index, filtered_result.index)
+    pd.testing.assert_index_equal(result[result['is_cusum_triggered']].index, filtered_result.index)
 
 
 
@@ -239,9 +242,8 @@ def test_filtrate_tripple_label_barrier_should_not_delete(simple_dataframe):
     # Check that length is the same as input
     assert len(result) == len(df)
     assert 't1' in result.columns
-    # Check that some t1 are not NA (triggered events) and some are NA
-    assert result['t1'].isna().any()
-    assert result['t1'].notna().any()
+    # t1 should be present for all rows
+    assert result['t1'].notna().all()
     # Check that all columns from original df are present
     for col in df.columns:
         assert col in result.columns
@@ -262,9 +264,8 @@ def test_filtrate_dynamic_tripple_label_barrier_should_not_delete(simple_datafra
     # Check that length is the same as input
     assert len(result) == len(df)
     assert 't1' in result.columns
-    # Check that some t1 are not NA (triggered events) and some are NA
-    assert result['t1'].isna().any()
-    assert result['t1'].notna().any()
+    # t1 should be present for all rows
+    assert result['t1'].notna().all()
     # Check that all columns from original df are present
     for col in df.columns:
         assert col in result.columns
