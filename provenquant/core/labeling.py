@@ -45,7 +45,7 @@ def filtrate_dynamic_tripple_label_barrier(
     Args:
         dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
         cusum_threshold_col (str): Name of the column containing CUSUM thresholds.
-        vertical_barrier (int): Ticks for vertical barrier.
+        vertical_barrier (int): Minutes for vertical barrier.
         time_col (str): Name of the datetime column. Defaults to 'index'.
         should_delete_filtered_row (bool): Whether to delete rows that are not
             tripped by CUSUM filter. Defaults to True.
@@ -56,8 +56,10 @@ def filtrate_dynamic_tripple_label_barrier(
     # CUSUM Filter with dynamic thresholds
     if time_col != 'index':
         close_prices = dataframe.set_index(time_col)['close']
+        full_index = dataframe[time_col]
     else:
         close_prices = dataframe['close']
+        full_index = dataframe.index
     
     diff = close_prices.pct_change().dropna()
     
@@ -77,18 +79,13 @@ def filtrate_dynamic_tripple_label_barrier(
     t_events = pd.DatetimeIndex(t_events)
     
     # Vertical Barrier
-    t1_values = []
-    for event_time in t_events:
-        t1_value = close_prices.index[
-            close_prices.index.get_loc(event_time) + vertical_barrier
-            ] if (close_prices.index.get_loc(event_time) + vertical_barrier) < len(close_prices) else close_prices.index[-1]
-        t1_values.append(t1_value)
-    
-    t1 = pd.Series(t1_values, index=t_events, dtype=close_prices.index.dtype)
+    # t1 is now calculated by adding minutes to the event time
+    t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
     
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
-        df['t1'] = t1
+        df['t1'] = t1.loc[t_events] if time_col == 'index' else t1.iloc[dataframe.index[dataframe[time_col].isin(t_events)]].values
+        df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
         if time_col == 'index':
@@ -104,8 +101,9 @@ def filtrate_dynamic_tripple_label_barrier(
         if time_col != 'index':
             df = df.set_index(time_col)
         
-        df['t1'] = pd.Series(pd.NA, index=df.index, dtype=close_prices.index.dtype)
-        df.loc[t_events, 't1'] = t1
+        df['t1'] = t1.values if time_col != 'index' else t1
+        df['is_cusum_triggered'] = False
+        df.loc[t_events, 'is_cusum_triggered'] = True
         
         if time_col != 'index':
             df = df.reset_index().rename(columns={'index': time_col})
@@ -126,7 +124,7 @@ def filtrate_tripple_label_barrier(
     Args:
         dataframe (pd.DataFrame): Raw DataFrame that contains close prices.
         cusum_threshold (float): Threshold for CUSUM filter in percentage.
-        vertical_barrier (int): Ticks for vertical barrier.
+        vertical_barrier (int): Minutes for vertical barrier.
         time_col (str): Name of the datetime column. Defaults to 'index'.
         should_delete_filtered_row (bool): Whether to delete rows that are not
             tripped by CUSUM filter. Defaults to True.
@@ -137,8 +135,10 @@ def filtrate_tripple_label_barrier(
     # CUSUM Filter
     if time_col != 'index':
         close_prices = dataframe.set_index(time_col)['close']
+        full_index = dataframe[time_col]
     else:
         close_prices = dataframe['close']
+        full_index = dataframe.index
     
     diff = close_prices.pct_change().dropna()
     
@@ -157,19 +157,13 @@ def filtrate_tripple_label_barrier(
     t_events = pd.DatetimeIndex(t_events)
     
     # Vertical Barrier
-    # Build t1 values using a list first, then create Series with proper dtype
-    t1_values = []
-    for event_time in t_events:
-        t1_value = close_prices.index[
-            close_prices.index.get_loc(event_time) + vertical_barrier
-            ] if (close_prices.index.get_loc(event_time) + vertical_barrier) < len(close_prices) else close_prices.index[-1]
-        t1_values.append(t1_value)
-    
-    t1 = pd.Series(t1_values, index=t_events, dtype=close_prices.index.dtype)
+    # t1 is now calculated by adding minutes to the event time
+    t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
     
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
-        df['t1'] = t1
+        df['t1'] = t1.loc[t_events] if time_col == 'index' else t1.iloc[dataframe.index[dataframe[time_col].isin(t_events)]].values
+        df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
         if time_col == 'index':
@@ -187,8 +181,9 @@ def filtrate_tripple_label_barrier(
         if time_col != 'index':
             df = df.set_index(time_col)
             
-        df['t1'] = pd.Series(pd.NA, index=df.index, dtype=close_prices.index.dtype)
-        df.loc[t_events, 't1'] = t1
+        df['t1'] = t1.values if time_col != 'index' else t1
+        df['is_cusum_triggered'] = False
+        df.loc[t_events, 'is_cusum_triggered'] = True
         
         if time_col != 'index':
             df = df.reset_index().rename(columns={'index': time_col})
