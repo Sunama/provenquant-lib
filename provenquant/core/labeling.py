@@ -89,18 +89,7 @@ def filtrate_dynamic_tripple_label_barrier(
     
     # Vertical Barrier
     # t1 is now calculated by adding minutes to the event time
-    full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
-    
-    # Clip t1 to the last available time in the dataframe
-    last_time = pd.Timestamp(full_index.values[-1])
-    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
-        last_time = last_time.tz_localize('UTC').tz_convert(full_index.dt.tz)
-    elif hasattr(full_index, 'tz') and full_index.tz is not None:
-        last_time = last_time.tz_localize('UTC').tz_convert(full_index.tz)
-    elif last_time.tz is not None:
-        last_time = last_time.tz_localize(None)
-
-    full_t1 = pd.Series(full_t1).clip(upper=last_time)
+    full_t1 = pd.Series(full_index + pd.Timedelta(minutes=vertical_barrier))
     
     # Ensure full_t1 preserves timezone if any
     if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
@@ -196,18 +185,7 @@ def filtrate_tripple_label_barrier(
     
     # Vertical Barrier
     # t1 is now calculated by adding minutes to the event time
-    full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
-    
-    # Clip t1 to the last available time in the dataframe
-    last_time = pd.Timestamp(full_index.values[-1])
-    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
-        last_time = last_time.tz_localize('UTC').tz_convert(full_index.dt.tz)
-    elif hasattr(full_index, 'tz') and full_index.tz is not None:
-        last_time = last_time.tz_localize('UTC').tz_convert(full_index.tz)
-    elif last_time.tz is not None:
-        last_time = last_time.tz_localize(None)
-
-    full_t1 = pd.Series(full_t1).clip(upper=last_time)
+    full_t1 = pd.Series(full_index + pd.Timedelta(minutes=vertical_barrier))
     
     # Ensure full_t1 preserves timezone if any
     if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
