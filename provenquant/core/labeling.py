@@ -66,9 +66,18 @@ def filtrate_dynamic_tripple_label_barrier(
     pos_cusum, neg_cusum = 0, 0
     t_events = []
     for idx in diff.index[1:]:
-        threshold = dataframe.loc[idx, cusum_threshold_col]
-        pos_cusum = max(0, pos_cusum + diff.loc[idx])
-        neg_cusum = min(0, neg_cusum + diff.loc[idx])
+        if time_col != 'index' and isinstance(idx, pd.Timestamp):
+            # If time_col is not index, the idx in diff (from close_prices) 
+            # might be a Timestamp that is not in the dataframe's (likely RangeIndex) index
+            # We need to use the original index to get the threshold
+            threshold = dataframe.loc[dataframe[time_col] == idx, cusum_threshold_col].iloc[0]
+            val = diff.loc[idx]
+        else:
+            threshold = dataframe.loc[idx, cusum_threshold_col]
+            val = diff.loc[idx]
+            
+        pos_cusum = max(0, pos_cusum + val)
+        neg_cusum = min(0, neg_cusum + val)
         
         if pos_cusum > threshold:
             t_events.append(idx)
@@ -83,15 +92,36 @@ def filtrate_dynamic_tripple_label_barrier(
     full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
     
     # Clip t1 to the last available time in the dataframe
-    last_time = full_index.values[-1]
+    last_time = pd.Timestamp(full_index.values[-1])
+    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
+        last_time = last_time.tz_localize('UTC').tz_convert(full_index.dt.tz)
+    elif hasattr(full_index, 'tz') and full_index.tz is not None:
+        last_time = last_time.tz_localize('UTC').tz_convert(full_index.tz)
+    elif last_time.tz is not None:
+        last_time = last_time.tz_localize(None)
+
     full_t1 = pd.Series(full_t1).clip(upper=last_time)
     
+    # Ensure full_t1 preserves timezone if any
+    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
+        if full_t1.dt.tz is None:
+            full_t1 = full_t1.dt.tz_localize('UTC').dt.tz_convert(full_index.dt.tz)
+        else:
+            full_t1 = full_t1.dt.tz_convert(full_index.dt.tz)
+    elif hasattr(full_index, 'tz') and full_index.tz is not None:
+        if full_t1.dt.tz is None:
+            full_t1 = full_t1.dt.tz_localize('UTC').dt.tz_convert(full_index.tz)
+        else:
+            full_t1 = full_t1.dt.tz_convert(full_index.tz)
+
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
         if time_col == 'index':
             df['t1'] = full_t1[full_index.isin(t_events)].values
         else:
-            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].values
+            # We must use labels or ensure the values array preserves objects (Timestamps with TZ)
+            # .values on a Series with TZ often returns naive numpy datetime64
+            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].tolist()
         df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
@@ -99,7 +129,8 @@ def filtrate_dynamic_tripple_label_barrier(
             for col in dataframe.columns:
                 df[col] = dataframe.loc[t_events, col]
         else:
-            temp_df = dataframe.set_index(time_col)
+            # Need to filter the original dataframe by time_col values
+            temp_df = dataframe[dataframe[time_col].isin(t_events)].set_index(time_col)
             for col in dataframe.columns:
                 if col != time_col:
                     df[col] = temp_df.loc[t_events, col]
@@ -108,7 +139,7 @@ def filtrate_dynamic_tripple_label_barrier(
         if time_col != 'index':
             df = df.set_index(time_col)
         
-        df['t1'] = full_t1.values
+        df['t1'] = full_t1.tolist()
         df['is_cusum_triggered'] = False
         df.loc[t_events, 'is_cusum_triggered'] = True
         
@@ -168,15 +199,34 @@ def filtrate_tripple_label_barrier(
     full_t1 = full_index + pd.Timedelta(minutes=vertical_barrier)
     
     # Clip t1 to the last available time in the dataframe
-    last_time = full_index.values[-1]
+    last_time = pd.Timestamp(full_index.values[-1])
+    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
+        last_time = last_time.tz_localize('UTC').tz_convert(full_index.dt.tz)
+    elif hasattr(full_index, 'tz') and full_index.tz is not None:
+        last_time = last_time.tz_localize('UTC').tz_convert(full_index.tz)
+    elif last_time.tz is not None:
+        last_time = last_time.tz_localize(None)
+
     full_t1 = pd.Series(full_t1).clip(upper=last_time)
     
+    # Ensure full_t1 preserves timezone if any
+    if hasattr(full_index, 'dt') and full_index.dt.tz is not None:
+        if full_t1.dt.tz is None:
+            full_t1 = full_t1.dt.tz_localize('UTC').dt.tz_convert(full_index.dt.tz)
+        else:
+            full_t1 = full_t1.dt.tz_convert(full_index.dt.tz)
+    elif hasattr(full_index, 'tz') and full_index.tz is not None:
+        if full_t1.dt.tz is None:
+            full_t1 = full_t1.dt.tz_localize('UTC').dt.tz_convert(full_index.tz)
+        else:
+            full_t1 = full_t1.dt.tz_convert(full_index.tz)
+
     if should_delete_filtered_row:
         df = pd.DataFrame(index=t_events)
         if time_col == 'index':
-            df['t1'] = full_t1[full_index.isin(t_events)].values
+            df['t1'] = full_t1[full_index.isin(t_events)].tolist()
         else:
-            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].values
+            df['t1'] = full_t1[dataframe[time_col].isin(t_events)].tolist()
         df['is_cusum_triggered'] = True
         
         # Add another columns in dataframe to df
@@ -186,7 +236,7 @@ def filtrate_tripple_label_barrier(
                 df[col] = dataframe.loc[t_events, col]
         else:
             # datetime is a column, need to set it as index first
-            temp_df = dataframe.set_index(time_col)
+            temp_df = dataframe[dataframe[time_col].isin(t_events)].set_index(time_col)
             for col in dataframe.columns:
                 if col != time_col:
                     df[col] = temp_df.loc[t_events, col]
@@ -195,7 +245,7 @@ def filtrate_tripple_label_barrier(
         if time_col != 'index':
             df = df.set_index(time_col)
             
-        df['t1'] = full_t1.values
+        df['t1'] = full_t1.tolist()
         df['is_cusum_triggered'] = False
         df.loc[t_events, 'is_cusum_triggered'] = True
         

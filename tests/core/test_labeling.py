@@ -101,9 +101,65 @@ def test_filtrate_tripple_label_barrier_high_threshold(simple_dataframe):
         vertical_barrier=5,
         time_col='datetime'
     )
+    assert len(result) == 0
+
+def test_filtrate_tripple_label_barrier_tz_aware(simple_dataframe):
+    """Test filtrate_tripple_label_barrier with tz-aware datetime column."""
+    df = simple_dataframe.reset_index()
+    df.rename(columns={'index': 'datetime'}, inplace=True)
+    df['datetime'] = df['datetime'].dt.tz_localize('UTC')
     
-    # Higher threshold should result in fewer events
-    assert len(result) >= 0
+    result = filtrate_tripple_label_barrier(
+        df,
+        cusum_threshold=0.001,
+        vertical_barrier=60,
+        time_col='datetime'
+    )
+    
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    if len(result) > 0:
+        assert result.iloc[0]['t1'].tz is not None
+        assert str(result.iloc[0]['t1'].tz) == 'UTC'
+
+def test_filtrate_tripple_label_barrier_tz_naive(simple_dataframe):
+    """Test filtrate_tripple_label_barrier with tz-naive datetime column."""
+    df = simple_dataframe.reset_index()
+    df.rename(columns={'index': 'datetime'}, inplace=True)
+    # Ensure it's naive (should be by default from pd.date_range in fixture)
+    assert df['datetime'].dt.tz is None
+    
+    result = filtrate_tripple_label_barrier(
+        df,
+        cusum_threshold=0.001,
+        vertical_barrier=60,
+        time_col='datetime'
+    )
+    
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    if len(result) > 0:
+        assert result.iloc[0]['t1'].tz is None
+
+def test_filtrate_dynamic_tripple_label_barrier_tz_aware(simple_dataframe):
+    """Test filtrate_dynamic_tripple_label_barrier with tz-aware datetime column."""
+    df = simple_dataframe.reset_index()
+    df.rename(columns={'index': 'datetime'}, inplace=True)
+    df['datetime'] = df['datetime'].dt.tz_localize('Asia/Bangkok')
+    df['threshold'] = 0.001
+    
+    result = filtrate_dynamic_tripple_label_barrier(
+        df,
+        cusum_threshold_col='threshold',
+        vertical_barrier=60,
+        time_col='datetime'
+    )
+    
+    assert isinstance(result, pd.DataFrame)
+    assert 't1' in result.columns
+    if len(result) > 0:
+        assert result.iloc[0]['t1'].tz is not None
+        assert str(result.iloc[0]['t1'].tz) == 'Asia/Bangkok'
 
 def test_filtrate_tripple_label_barrier_no_delete(volatile_dataframe):
     """Test filtrate_tripple_label_barrier with should_delete_filtered_row=False."""
