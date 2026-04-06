@@ -3,33 +3,50 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
 def get_frac_diff(
-  series: pd.Series,
-  d: float,
+    series: pd.Series,
+    d: float,
+    threshold: float = 1e-5,
 ) -> pd.Series:
-    """Compute fractionally differenced series.
+    """Compute fractionally differenced series using Fixed-Window Fractional Differentiation (FFD).
     
     Args:
         series (pd.Series): Original time series.
         d (float): Differencing order.
+        threshold (float, optional): Weight threshold for window truncation. Defaults to 1e-5.
     
     Returns:
         pd.Series: Fractionally differenced series.
     """
-    # Compute weights for fractionally differencing
+    # Compute weights for fractionally differencing until they drop below threshold
     w = [1.0]
-    for k in range(1, len(series)):
-        w.append(-w[-1] * (d - k + 1) / k)
-    w = pd.Series(w).fillna(0)
+    k = 1
+    while True:
+        next_w = -w[-1] * (d - k + 1) / k
+        if abs(next_w) < threshold:
+            break
+        w.append(next_w)
+        k += 1
+        # Safety break to prevent infinite loop for very small d
+        if k > len(series):
+            break
+            
+    w = pd.Series(w).values
     # Replace -0.0 with 0.0 to avoid numerical issues
     w[w == 0] = 0.0
 
-    # Apply weights to the series
+    # Apply weights to the series using a fixed window (FFD)
+    # This approach is memory efficient and supports incremental processing
     frac_diff_series = pd.Series(index=series.index, dtype=float)
+    
+    # We need at least the window size to have a stable value, 
+    # but we will compute for all available if possible.
+    window_size = len(w)
+    
     for i in range(len(series)):
-        if i < len(w):
-            frac_diff_series.iloc[i] = (w[:i+1].values[::-1] * series.iloc[:i+1].values).sum()
-        else:
-            frac_diff_series.iloc[i] = (w.values * series.iloc[i-len(w)+1:i+1].values).sum()
+        # For the first few elements where we don't have enough history, 
+        # the value will be less "stable" but still calculated using available history.
+        curr_window = min(i + 1, window_size)
+        frac_diff_series.iloc[i] = (w[:curr_window][::-1] * series.iloc[i-curr_window+1:i+1].values).sum()
     
     return frac_diff_series
 
