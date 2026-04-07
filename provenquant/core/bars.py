@@ -9,7 +9,7 @@ def convert_standard_bars_to_larger_timeframe(
 
     Args:
         dataframe (pd.DataFrame): Input standard bars with 'open', 'high', 'low', 'close', 'volume' columns and datetime index.
-        timeframe (str): Resampling timeframe (e.g., '5T' for 5 minutes, '15T' for 15 minutes).
+        timeframe (str): Resampling timeframe (e.g., '5min' for 5 minutes, '15min' for 15 minutes).
         time_col (str, optional): Name of the datetime column. Defaults to 'index'.
         
     Returns:
@@ -27,14 +27,14 @@ def convert_standard_bars_to_larger_timeframe(
     
     # Map common timeframe suffixes to pandas-compatible ones
     timeframe_mapping = {
-        'm': 'T',    # minutes
-        'h': 'H',    # hours
+        'm': 'min',  # minutes
+        'h': 'h',    # hours
         'd': 'D',    # days
         'w': 'W',    # weeks
         'M': 'ME',   # months (Month End)
     }
     
-    # Check if timeframe needs mapping (e.g., '5m' -> '5T')
+    # Check if timeframe needs mapping (e.g., '5m' -> '5min')
     import re
     match = re.match(r'(\d+)([a-zA-Z]+)', timeframe)
     if match:
